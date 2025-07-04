@@ -23,7 +23,7 @@ var sketch = {
 };
 var sketch_size_update_timer = null; // reference to size update interval
 
-function chat_openSketch() {
+function chat_open_sketch() {
     closeOverlay()
     // Create a canvas element
 
