@@ -76,7 +76,14 @@ function submitPoll() {
         options: [option1, option2] //TODO: more than two options
     };
 
-    const payload = JSON.stringify(pollData);
+    var payload = ''
+        if (Android.isGeoLocationEnabled() == "true") {
+            var plusCode = Android.getCurrentLocationAsPlusCode();
+            if (plusCode != null && plusCode.length > 0) //check if we actually received a location
+                payload += "pfx:loc/plus," + plusCode + "|";
+        }
+
+    payload += JSON.stringify(pollData);
     const encodedPayload = btoa(payload);
 
     var ch = tremola.chats[curr_chat];
