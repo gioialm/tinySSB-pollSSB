@@ -69,7 +69,29 @@ function submitPoll() {
         return;
     }
 
+    // Build JSON payload
+    const pollData = {
+        type: "poll:create",
+        question: question,
+        options: [option1, option2] //TODO: more than two options
+    };
+
+    const payload = JSON.stringify(pollData);
+    const encodedPayload = btoa(payload);
+
+    let cmd;
+    if(curr_chat = "ALL") {
+        let tips = JSON.stringify(tremola.chats[curr_chat].timeline.get_tips());
+        cmd = `publ:post ${tips} ${encodedPayload} null`;
+    } else {
+        let recps = tremola.chats[curr_chat].members.join(' ');
+        let tips = JSON.stringify(tremola.chats[curr_chat].timeline.get_tips());
+        cmd = `priv:post ${tips} ${encodedPayload} null ${recps}`;
+    }
+
+    backend(cmd);
     closeOverlay();
+    showSnackbar("Poll created successfully");
 }
 
 /**
