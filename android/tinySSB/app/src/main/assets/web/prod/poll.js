@@ -86,5 +86,5 @@ function chat_submit_poll_creator() {
 
     backend(cmd);
     closeOverlay();
-    showSnackbar("Poll created successfully");
+    launch_snackbar("Poll created successfully");
 }
