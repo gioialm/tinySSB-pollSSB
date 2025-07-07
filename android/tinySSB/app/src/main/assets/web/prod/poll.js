@@ -77,11 +77,12 @@ function chat_submit_poll_creator() {
     let tips = JSON.stringify(ch.timeline.get_tips());
 
     let cmd;
-    if(curr_chat = "ALL") {
-        cmd = `publ:post ${tips} ${encodedPayload} null`;
+    if(curr_chat == "ALL") {
+        cmd = `publ:poll ${tips} ${encodedPayload} null`;
     } else {
         let recps = tremola.chats[curr_chat].members.join(' ');
-        cmd = `priv:post ${tips} ${encodedPayload} null ${recps}`;
+        cmd = `priv:poll ${tips} ${encodedPayload} null ${recps}`;
+
     }
 
     backend(cmd);

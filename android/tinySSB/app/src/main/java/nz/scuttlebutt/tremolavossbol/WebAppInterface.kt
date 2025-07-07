@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import nz.scuttlebutt.tremolavossbol.utils.Bipf
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_BYTES
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_LIST
+import nz.scuttlebutt.tremolavossbol.poll.PollCodec
 
 import nz.scuttlebutt.tremolavossbol.utils.Constants.Companion.TINYSSB_APP_IAM
 import nz.scuttlebutt.tremolavossbol.utils.Constants.Companion.TINYSSB_APP_TEXTANDVOICE
@@ -251,6 +252,49 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 if (args.size > 3 && args[3] != "null")
                     v = Base64.decode(args[3], Base64.NO_WRAP)
                 private_post_with_voice(tips, t, v, args.slice(4..args.lastIndex))
+                return
+            }
+            "priv:poll" -> {
+                Log.d("Poll", "in priv:poll")
+                // extracts tips, previous msgs the poll is based on
+                val a = JSONArray(args[1])
+                val tips = ArrayList<String>(0)
+                for (i in 0 until a.length())
+                    tips.add(a[i].toString())
+                // decodes the acutal content
+                val rawJson = if (args[2] != "null")
+                    Base64.decode(args[2], Base64.NO_WRAP).decodeToString()
+                else null
+
+                // strip location prefix like: pfx:loc/plus,...|
+                val jsonStr = rawJson?.substringAfter("|", rawJson)
+
+                // extract recipients
+                val rcps = args.slice(4..args.lastIndex)
+
+                // parse polls
+                try {
+                    val poll = jsonStr?.let {
+                        val obj = JSONObject(it)
+                        val id = obj.optString("id", PollCodec.generatePollId())
+                        val question = obj.getString("question")
+                        val options = obj.getJSONArray("options").let { arr ->
+                            List(arr.length()) { i -> arr.getString(i) }
+                        }
+                        PollCodec.Poll(id, question, options)
+                    }
+
+                    // post poll
+                    if (poll != null) {
+                        Log.d("Poll", "calling private_post_poll with tips=$tips, poll=$poll, recps=$rcps")
+                        private_post_poll(tips, poll, rcps)
+                    } else {
+                        Log.w("Poll", "poll was null after parsing")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("Poll", "Error parsing poll JSON: ${e.message}", e)
+                }
                 return
             }
             "get:media" -> {
@@ -731,6 +775,54 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
         if (body_encr != null)
             act.tinyNode.publish_public_content(body_encr)
     }
+
+    fun private_post_poll(tips: List<String>, poll: PollCodec.Poll, rcps: List<String>) {
+        Log.d("Poll", "Tips: $tips")
+        Log.d("Poll", "Poll: $poll")
+        Log.d("Poll", "Recipients: $rcps")
+
+        val lst = Bipf.mkList()
+
+        // create BIPF
+        Bipf.list_append(lst, PollCodec.TINYSSB_APP_POLL)  // "POL"
+        val tip_lst = Bipf.mkList()
+        for (t in tips) {
+            Bipf.list_append(tip_lst, Bipf.mkString(t))
+        }
+        Bipf.list_append(lst, tip_lst)
+        // adds plain-text body
+        val textBody = buildString {
+            append("📊 Poll: ${poll.question}")
+            for ((index, opt) in poll.options.withIndex()) {
+                append("\n  [ ] ${opt}")
+            }
+        }
+        Bipf.list_append(lst, Bipf.mkString(textBody))
+        Bipf.list_append(lst, Bipf.mkNone()) // no voice
+        val tst = Bipf.mkInt((System.currentTimeMillis() / 1000).toInt()) // timestamp
+        Bipf.list_append(lst, tst)
+
+        // recipients
+        val recpsBipf = Bipf.mkList()
+        val keys = mutableListOf<ByteArray>()
+        val me = act.idStore.identity.toRef()
+        for (r in rcps) {
+            if (r != me) {
+                Bipf.list_append(recpsBipf, Bipf.mkString(r))
+                keys.add(r.deRef())
+            }
+        }
+        Bipf.list_append(recpsBipf, Bipf.mkString(me))
+        keys.add(me.deRef())
+        Bipf.list_append(lst, recpsBipf)
+
+        val body_clear = Bipf.encode(lst)
+        val encrypted = act.idStore.identity.encryptPrivateMessage(body_clear!!, keys)
+        val body_encr = Bipf.encode(Bipf.mkBytes(encrypted))
+        if (body_encr != null)
+            act.tinyNode.publish_public_content(body_encr)
+    }
+
 
     fun kanban(bid: String?, prev: List<String>?, operation: String, args: List<String>?) {
         val lst = Bipf.mkList()

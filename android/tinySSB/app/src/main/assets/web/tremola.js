@@ -463,31 +463,132 @@ function b2f_local_peer(type, identifier, displayname, status) {
  */
 function b2f_new_in_order_event(e) {
     if (e.public)
-        console.log("b2f inorder event:", JSON.stringify(e.public))
+        console.log("b2f inorder event (public):", JSON.stringify(e.public));
     if (e.confid)
-        console.log("b2f inorder event:", JSON.stringify(e.confid))
+        console.log("b2f inorder event (confid):", JSON.stringify(e.confid));
 
+    // ensure sender is in contacts
     if (!(e.header.fid in tremola.contacts)) {
         var a = id2b32(e.header.fid);
         tremola.contacts[e.header.fid] = {
-            "alias": a, "initial": a.substring(0, 1).toUpperCase(),
+            "alias": a,
+            "initial": a.substring(0, 1).toUpperCase(),
             "color": colors[Math.floor(colors.length * Math.random())],
-            "iam": "", "forgotten": false
-        }
-        load_contact_list()
+            "iam": "",
+            "forgotten": false
+        };
+        load_contact_list();
     }
 
-    if (e.public) switch (e.public[0]) {
-        case "KAN":
-            console.log("New kanban event")
-            kanban_new_event(e)
-            break
-        default:
-            return
+    // public events
+    if (e.public && Array.isArray(e.public)) {
+        let type = e.public[0];
+
+        if (type === "KAN") {
+            console.log("New kanban event");
+            kanban_new_event(e);
+        } else if (type === "POL") {
+            console.log("New public POL event");
+            let a = e.public;
+            let conv_name = "ALL";
+
+            if (!(conv_name in tremola.chats)) {
+                tremola.chats[conv_name] = {
+                    "alias": "Public channel X",
+                    "posts": {},
+                    "members": ["ALL"],
+                    "touched": Date.now(),
+                    "lastRead": 0,
+                    "timeline": new Timeline()
+                };
+                load_chat_list();
+            }
+
+            let ch = tremola.chats[conv_name];
+            if (!(ch.timeline instanceof Timeline))
+                ch.timeline = Timeline.fromJSON(ch.timeline);
+
+            if (!(e.header.ref in ch.posts)) {
+                let p = {
+                    "key": e.header.ref,
+                    "from": e.header.fid,
+                    "body": a[2],
+                    "when": a[4] * 1000,
+                    "prev": a[1]
+                };
+                ch.posts[e.header.ref] = p;
+                ch.timeline.add(e.header.ref, a[1]);
+                if (ch.touched < e.header.tst)
+                    ch.touched = e.header.tst;
+
+                if (curr_scenario == "posts" && curr_chat == conv_name) {
+                    load_chat(conv_name);
+                    ch.lastRead = Object.keys(ch.posts).length;
+                }
+                set_chats_badge(conv_name);
+            }
+            load_chat_list();
+        }
     }
+
+    // private events
+    if (e.confid && Array.isArray(e.confid)) {
+        let a = e.confid;
+        if (a[0] === "POL") {
+            console.log("New private POL event");
+            let rcpts = a[5];
+            let conv_name = recps2nm(rcpts);
+
+            if (!(conv_name in tremola.chats)) {
+                tremola.chats[conv_name] = {
+                    "alias": recps2display(rcpts),
+                    "posts": {},
+                    "members": rcpts,
+                    "touched": Date.now(),
+                    "lastRead": 0,
+                    "timeline": new Timeline()
+                };
+                load_chat_list();
+            }
+
+            let ch = tremola.chats[conv_name];
+            if (!(ch.timeline instanceof Timeline))
+                ch.timeline = Timeline.fromJSON(ch.timeline);
+
+            if (!(e.header.ref in ch.posts)) {
+                let p = {
+                    "key": e.header.ref,
+                    "from": e.header.fid,
+                    "body": a[2],
+                    "when": a[4] * 1000,
+                    "prev": a[1],
+                    "status": ""
+                };
+                ch.posts[e.header.ref] = p;
+                ch.timeline.add(e.header.ref, a[1]);
+
+                if (e.header.fid != myId && ch.members.length == 2 && tremola.settings.confirmed_delivery_enabled)
+                    p.status = 'needs_ack';
+                    setTimeout(() => {
+                        backend("conf_dlv " + e.header.ref + " " + e.header.fid);
+                    }, 200);
+
+                if (ch.touched < e.header.tst)
+                    ch.touched = e.header.tst;
+                if (curr_scenario == "posts" && curr_chat == conv_name)
+                    load_chat(conv_name);
+
+                set_chats_badge(conv_name);
+            }
+            load_chat_list();
+        }
+    }
+
     persist();
     must_redraw = true;
 }
+
+
 
 /**
  * This function is invoked whenever the backend receives a new log entry, regardless of whether the associated sidechain is fully loaded or not.
