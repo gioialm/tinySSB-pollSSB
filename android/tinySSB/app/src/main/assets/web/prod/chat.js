@@ -200,6 +200,17 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
     if (p["body"] != null) {
         // txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
         txt = otherText;
+        // To display vote button on poll msgs:
+        if (txt.startsWith("📊 Poll:")) {
+            const voteBtnId = `vote-btn-${p.key}`;
+            txt += `
+                <br><br>
+                <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${txt}\`)">
+                    🗳️ Vote
+                </button>
+            `;
+        }
+
         // Sketch app
         if (txt.startsWith("data:image/png;base64")) { // check if the string is a data url
                 let compressedBase64 = txt.split(',')[1];

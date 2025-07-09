@@ -1,3 +1,6 @@
+let currentPollId = null;
+let selectedOption = null;
+
 /**
  * chat_open_poll_creator()
  *
@@ -88,4 +91,63 @@ function chat_submit_poll_creator() {
     backend(cmd);
     closeOverlay();
     launch_snackbar("Poll created successfully");
+}
+
+
+function openVoteModal(pollId, pollText) {
+    currentPollId = pollId;
+    selectedOption = null;
+
+    const lines = pollText.split("<br>\n");
+    const question = lines[0].replace("📊 Poll: ", "").trim();
+
+    const options = lines.slice(1).map(line =>
+        line.replace("[ ]", "").trim()
+    );
+
+    document.getElementById("voteQuestion").innerText = question;
+
+    const optContainer = document.getElementById("voteOptions");
+    optContainer.innerHTML = "";
+    options.forEach(opt => {
+        const id = "opt-" + opt.replace(/\s/g, "_");
+        optContainer.innerHTML += `
+            <div style="margin: 5px 0;">
+                <input type="radio" id="${id}" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
+                <label for="${id}" style="margin-left: 5px;">${opt}</label>
+            </div>`;
+    });
+
+    document.getElementById("voteModal").style.display = "block";
+}
+
+
+function closeVoteModal() {
+    document.getElementById("voteModal").style.display = "none";
+}
+
+function submitVote() {
+    if (!selectedOption) {
+        launch_snackbar("Please select an option");
+        return;
+    }
+
+    const voteMsg = `Voted: ${selectedOption}`;
+
+    const ch = tremola.chats[curr_chat];
+    if (!(ch.timeline instanceof Timeline)) {
+        ch.timeline = Timeline.fromJSON(ch.timeline);
+    }
+
+    const tips = JSON.stringify(ch.timeline.get_tips());
+    const recps = ch.members.join(' ');
+
+    const encodedText = btoa(voteMsg);
+
+    // Send it like a regular private post
+    const cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
+    backend(cmd);
+
+    closeVoteModal();
+    launch_snackbar("Your vote has been sent.");
 }
