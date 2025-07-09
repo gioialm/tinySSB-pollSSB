@@ -238,6 +238,45 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 public_post_with_voice(tips, t, v)
                 return
             }
+            "publ:poll" -> {
+                Log.d("Poll", "in publ:poll")
+                // extracts tips (references to previous messages)
+                val a = JSONArray(args[1])
+                val tips = ArrayList<String>(0)
+                for (i in 0 until a.length())
+                    tips.add(a[i].toString())
+
+                // decode the actual poll content
+                val rawJson = if (args[2] != "null")
+                    Base64.decode(args[2], Base64.NO_WRAP).decodeToString()
+                else null
+
+                // strip location prefix if any (like "pfx:loc/plus,...|")
+                val jsonStr = rawJson?.substringAfter("|", rawJson)
+
+                try {
+                    val poll = jsonStr?.let {
+                        val obj = JSONObject(it)
+                        val id = obj.optString("id", PollCodec.generatePollId())
+                        val question = obj.getString("question")
+                        val options = obj.getJSONArray("options").let { arr ->
+                            List(arr.length()) { i -> arr.getString(i) }
+                        }
+                        PollCodec.Poll(id, question, options)
+                    }
+
+                    if (poll != null) {
+                        Log.d("Poll", "calling public_post_poll with tips=$tips, poll=$poll")
+                        public_post_poll(tips, poll)
+                    } else {
+                        Log.w("Poll", "poll was null after parsing")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("Poll", "Error parsing poll JSON: ${e.message}", e)
+                }
+                return
+            }
             "priv:post" -> { // priv:post tips atob(text) atob(voice) rcp1 rcp2 ...
                 val a = JSONArray(args[1])
                 val tips = ArrayList<String>(0)
@@ -580,6 +619,47 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
         val body = Bipf.encode(lst)
         if (body != null)
             act.tinyNode.publish_public_content(body)
+    }
+
+    fun public_post_poll(tips: List<String>, poll: PollCodec.Poll) {
+        Log.d("Poll", "Public poll - Tips: $tips")
+        Log.d("Poll", "Public poll - Poll: $poll")
+
+        val lst = Bipf.mkList()
+
+        Bipf.list_append(lst, PollCodec.TINYSSB_APP_POLL) // 'POL'
+
+        // Add tips (references to previous messages)
+        val tip_lst = Bipf.mkList()
+        for (t in tips) {
+            Bipf.list_append(tip_lst, Bipf.mkString(t))
+        }
+        Bipf.list_append(lst, tip_lst)
+
+        // Add plain-text poll body (so it shows in chat UI)
+        val textBody = buildString {
+            append("📊 Poll: ${poll.question}")
+            for ((index, opt) in poll.options.withIndex()) {
+                append("\n  [ ] ${opt}")
+            }
+        }
+        Bipf.list_append(lst, Bipf.mkString(textBody))
+
+        // Add voice (none for polls)
+        Bipf.list_append(lst, Bipf.mkNone())
+
+        // Add timestamp
+        val tst = Bipf.mkInt((System.currentTimeMillis() / 1000).toInt())
+        Bipf.list_append(lst, tst)
+
+        // Encode and publish as public message
+        val body = Bipf.encode(lst)
+        if (body != null) {
+            act.tinyNode.publish_public_content(body)
+            Log.d("Poll", "Published public poll message")
+        } else {
+            Log.w("Poll", "Failed to encode public poll")
+        }
     }
 
     fun trust_contact(contactID: String, trustLevel: Int, tips: ArrayList<String> = ArrayList()) {
