@@ -140,14 +140,20 @@ function submitVote() {
     }
 
     const tips = JSON.stringify(ch.timeline.get_tips());
-    const recps = ch.members.join(' ');
-
     const encodedText = btoa(voteMsg);
 
-    // Send it like a regular private post
-    const cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
-    backend(cmd);
+    let cmd;
+    if (curr_chat === "ALL") {
+        // Public post
+        cmd = `publ:post ${tips} ${encodedText} null`;
+    } else {
+        // Private post
+        const recps = ch.members.join(' ');
+        cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
+    }
 
+    backend(cmd);
     closeVoteModal();
     launch_snackbar("Your vote has been sent.");
 }
+
