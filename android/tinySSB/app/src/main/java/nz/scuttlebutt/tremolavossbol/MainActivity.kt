@@ -37,6 +37,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.zxing.integration.android.IntentIntegrator
 import nz.scuttlebutt.tremolavossbol.crypto.IdStore
+import nz.scuttlebutt.tremolavossbol.poll.VoteIndexer
 import nz.scuttlebutt.tremolavossbol.tssb.Demux
 import nz.scuttlebutt.tremolavossbol.tssb.GOset
 import nz.scuttlebutt.tremolavossbol.tssb.IO
@@ -72,6 +73,7 @@ class MainActivity : Activity() {
     val tinyRepo = Repo(this)
     val tinyDemux = Demux(this)
     val tinyGoset = GOset(this)
+    val voteIndexer = VoteIndexer(this)
     var settings: Settings? = null
     @Volatile var mc_group: InetAddress? = null
     @Volatile var mc_socket: MulticastSocket? = null
@@ -257,6 +259,14 @@ class MainActivity : Activity() {
             tinyNode.loop(ioLock)
         }
 
+        val t7 = thread(isDaemon = true) {
+            try {
+                voteIndexer.start()
+            } catch (e: Exception){
+                Log.e("VoteIndexer", "Failed to start indexer", e)
+            }
+        }
+
         /*
         t0.priority = 10
         t1.priority = 10
@@ -268,6 +278,7 @@ class MainActivity : Activity() {
         t4.priority = 10
         t5.priority = 8
         t6.priority = 8
+        t7.priority = 7
 
         scheduleWorker(this)
 
@@ -542,6 +553,8 @@ class MainActivity : Activity() {
     }
     override fun onDestroy() {
         Log.d("onDestroy", "")
+
+        voteIndexer.stop()
         /*
         try { broadcast_socket?.close() } catch (e: Exception) {}
         broadcast_socket = null
