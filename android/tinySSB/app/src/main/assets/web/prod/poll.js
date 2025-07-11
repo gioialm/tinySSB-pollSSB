@@ -2,6 +2,7 @@ let currentPollId = null;
 let selectedOption = null;
 let currentPollCreator = null;
 let optionsInCurrentPoll = [];
+let currentResultMessage = null;
 
 /**
  * chat_open_poll_creator()
@@ -171,5 +172,62 @@ function submitVote() {
     closeVoteModal();
     launch_snackbar("Your vote has been sent.");
 }
+
+function openResultsModal(pollId) {
+    console.log("Opening results for poll:", pollId);
+
+    const question = "Do you want to go on holiday?";
+    const results = [
+        { option: "Yes", votes: 5 },
+        { option: "No", votes: 0 }
+    ];
+
+    const resultsHtml = results.map(r =>
+        `<p>${r.votes > 0 ? '✅' : '❌'} <b>${r.option}</b> — ${r.votes} vote${r.votes !== 1 ? 's' : ''}</p>`
+    ).join("");
+
+    const textSummary = `Results for: ${question}\n` +
+        results.map(r => `${r.option}: ${r.votes} vote${r.votes !== 1 ? 's' : ''}`).join('\n');
+
+    currentResultMessage = textSummary;
+
+    document.getElementById("resultsTitle").innerText = question;
+    document.getElementById("resultsBody").innerHTML = resultsHtml;
+
+    document.getElementById("resultsModal").style.display = "block";
+}
+
+function sendPollResults() {
+    if (!currentResultMessage) {
+        launch_snackbar("Nothing to send");
+        return;
+    }
+
+    const encodedText = btoa(currentResultMessage);
+
+    const ch = tremola.chats[curr_chat];
+    if (!(ch.timeline instanceof Timeline)) {
+        ch.timeline = Timeline.fromJSON(ch.timeline);
+    }
+
+    const tips = JSON.stringify(ch.timeline.get_tips());
+
+    let cmd;
+    if (curr_chat === "ALL") {
+        cmd = `publ:post ${tips} ${encodedText} null`;
+    } else {
+        const recps = ch.members.join(' ');
+        cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
+    }
+
+    backend(cmd);
+    closeResultsModal();
+    launch_snackbar("Results sent");
+}
+
+function closeResultsModal() {
+    document.getElementById("resultsModal").style.display = "none";
+}
+
 
 
