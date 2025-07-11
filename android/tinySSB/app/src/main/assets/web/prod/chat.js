@@ -209,6 +209,16 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
                     🗳️ Vote
                 </button>
             `;
+
+            // Result button only for the poll creator
+            if (p.from === myId) {
+                const resultsBtnId = `results-btn-${p.key}`;
+                txt += `
+                    <button id="${resultsBtnId}" onclick="openResultsModal('${p.key}')">
+                        📊 Results
+                    </button>
+                `;
+            }
         }
 
         // Sketch app

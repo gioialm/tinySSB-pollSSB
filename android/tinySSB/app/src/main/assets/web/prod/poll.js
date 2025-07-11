@@ -172,4 +172,30 @@ function submitVote() {
     launch_snackbar("Your vote has been sent.");
 }
 
+function openResultsModal(pollId) {
+    // TO DO: implement correct logic, currently with dummy data
+    console.log("Opening results for poll:", pollId);
+
+    const question = "Do you want to go on holiday?";
+    const results = [
+        { option: "Yes", votes: 5 },
+        { option: "No", votes: 0 }
+    ];
+
+    const resultsHtml = results.map(r =>
+        `<p>${r.votes > 0 ? '✅' : '❌'} <b>${r.option}</b> — ${r.votes} vote${r.votes !== 1 ? 's' : ''}</p>`
+    ).join("");
+
+    document.getElementById("resultsTitle").innerText = question;
+    document.getElementById("resultsBody").innerHTML = resultsHtml;
+
+    document.getElementById("resultsModal").style.display = "block";
+}
+
+
+function closeResultsModal() {
+    document.getElementById("resultsModal").style.display = "none";
+}
+
+
 
