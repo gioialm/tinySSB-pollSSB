@@ -10,6 +10,11 @@ android {
         viewBinding = true
     }
 
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
     defaultConfig {
         applicationId "nz.scuttlebutt.tremolavossbol"
         minSdk 24

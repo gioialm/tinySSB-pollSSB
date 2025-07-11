@@ -27,6 +27,7 @@ import nz.scuttlebutt.tremolavossbol.utils.Bipf
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_BYTES
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_LIST
 import nz.scuttlebutt.tremolavossbol.poll.PollCodec
+import nz.scuttlebutt.tremolavossbol.poll.VoteReference
 
 import nz.scuttlebutt.tremolavossbol.utils.Constants.Companion.TINYSSB_APP_IAM
 import nz.scuttlebutt.tremolavossbol.utils.Constants.Companion.TINYSSB_APP_TEXTANDVOICE
@@ -356,6 +357,21 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
 
                     // 4. Encrypt vote for poll creator only
                     val encrypted = act.idStore.identity.encryptPrivateMessage(payloadBytes, listOf(creatorPubKey))
+
+
+                    // ------------ Add entered vote to vote index file ---------------
+                    val payloadJson = JSONArray(String(payloadBytes, Charsets.UTF_8))
+                    val pollId = payloadJson.getString(1)
+
+                    Log.d("poll:vote", "Parsed pollId: $pollId")
+                    val fid = act.idStore.identity.verifyKey
+                    val replica = act.tinyRepo.fid2replica(fid)
+                    if(replica != null) {
+                        val seq = replica.state.max_seq + 1
+                        act.voteIndexer.enqueue(VoteReference(pollId, fid, seq))
+                    }
+                    //----------------------------------------------------------------
+
 
                     // 5. Append encrypted vote to own log
                     val result = act.tinyRepo.mk_logEntry(encrypted)

@@ -67,33 +67,48 @@ class VoteIndexer(private val context: Context) {
      */
 
     fun checkAndStoreIfPollVote(fid: ByteArray, seq: Int, content: ByteArray, decrypt: (ByteArray) -> ByteArray?) {
-        scope.launch {
-            try {
-                val decoded = Bipf.decode(content) ?: return@launch
-                if (decoded.typ != Bipf.BIPF_LIST || decoded.cnt < 1) return@launch
-                val lst = decoded.getBipfList()
-                val encrypted = lst[0].getBytes()
-
-                val decrypted = decrypt(encrypted) ?: return@launch
-                val inner = Bipf.decode(decrypted) ?: return@launch
-                if (inner.typ != Bipf.BIPF_LIST || inner.cnt < 3) return@launch
-
-                val innerList = inner.getBipfList()
-                val tag = innerList[0].getBytes()
-                if (!tag.contentEquals(PollCodec.TINYSSB_APP_POLL_VOTE.getBytes())) return@launch
-
-                val pollId = innerList[1].getString()
-                enqueue(VoteReference(pollId, fid, seq))
-
-                Log.d("VoteIndexer", "Detected and enqueued vote for poll $pollId from ${fid.toBase64()} at seq $seq")
-
-            } catch (e: Exception) {
-                Log.e("VoteIndexer", "Failed to check packet", e)
+        try {
+            Log.d("VoteIndexer", "checking message for POV tag")
+            val decoded = Bipf.decode(content)
+            if(decoded == null) {
+                Log.d("VoteIndexer", "Could not bipf decode")
+                return
             }
+            Log.d("VoteIndexer", "bipf decode successful")
+            if (decoded.typ != Bipf.BIPF_LIST || decoded.cnt < 1) {
+                Log.d("VoteIndexer", "not of type BIPF_LIST")
+                return
+            }
+
+            val lst = decoded.getBipfList()
+            val encrypted = lst[0].getBytes()
+
+            val decrypted = decrypt(encrypted) ?: return
+            val inner = Bipf.decode(decrypted) ?: return
+            if (inner.typ != Bipf.BIPF_LIST || inner.cnt < 3) return
+
+            val innerList = inner.getBipfList()
+
+            Log.d("VoteIndexer", "Decrypted vote payload: ${innerList.joinToString(", ") { it.get().toString() }}")
+
+            val tag = innerList[0].getBytes()
+            if (!tag.contentEquals(PollCodec.TINYSSB_APP_POLL_VOTE.getBytes())) return
+
+            val pollId = innerList[1].getString()
+            enqueue(VoteReference(pollId, fid, seq))
+
+            Log.d("VoteIndexer", "Detected and enqueued vote for poll $pollId from ${fid.toBase64()} at seq $seq")
+
+        } catch (e: Exception) {
+            Log.e("VoteIndexer", "Failed to check packet", e)
         }
     }
 
-    private fun enqueue(reference: VoteReference) {
+    fun enqueue(reference: VoteReference) {
+        Log.d(
+            "VoteIndexer",
+            "Enqueuing vote for pollId='${reference.pollId}', fid=${reference.fid.toBase64()}, seq=${reference.seq}"
+        )
         queue.add(reference)
     }
 
@@ -117,6 +132,7 @@ class VoteIndexer(private val context: Context) {
 
     private fun writeToFile(ref: VoteReference) {
         try {
+            Log.d("VoteIndexer", "trying to write to file")
             val pollDir = File(context.filesDir, POLL_PATH + ref.pollId)
             pollDir.mkdirs()
             val fidB64 = ref.fid.toBase64().replace("/", "_") // safe filename
