@@ -336,6 +336,39 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 }
                 return
             }
+            "poll:vote" -> {
+                try {
+                    // 1. Extract parameters
+                    val tipsJson = args[1] // not used here
+                    val encodedPayload = args[2]
+                    val creatorHex = args[4] // public key of poll creator
+
+                    // 2. Decode payload
+                    val payloadBytes = Base64.decode(encodedPayload, Base64.NO_WRAP)
+
+                    // 3. Convert creator identity to public key bytes (FIXED)
+                    val creatorPubKey = Base64.decode(
+                        creatorHex.removePrefix("@").removeSuffix(".ed25519"),
+                        Base64.NO_WRAP
+                    )
+                    Log.d("poll:vote", "Parsed creatorPubKey: ${creatorPubKey.toHex()}")
+
+
+                    // 4. Encrypt vote for poll creator only
+                    val encrypted = act.idStore.identity.encryptPrivateMessage(payloadBytes, listOf(creatorPubKey))
+
+                    // 5. Append encrypted vote to own log
+                    val result = act.tinyRepo.mk_logEntry(encrypted)
+                    if (result == -1) {
+                        Log.e("poll:vote", "Failed to append vote to log")
+                    } else {
+                        Log.d("poll:vote", "Vote appended to own log at seq=$result")
+                    }
+                } catch (e: Exception) {
+                    Log.e("poll:vote", "Error handling vote: ${e.message}", e)
+                }
+                return
+            }
             "get:media" -> {
                 if (checkSelfPermission(act, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(act, "No permission to access media files",

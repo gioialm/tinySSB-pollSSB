@@ -1,5 +1,7 @@
 let currentPollId = null;
 let selectedOption = null;
+let currentPollCreator = null;
+let optionsInCurrentPoll = [];
 
 /**
  * chat_open_poll_creator()
@@ -93,23 +95,23 @@ function chat_submit_poll_creator() {
     launch_snackbar("Poll created successfully");
 }
 
-
-function openVoteModal(pollId, pollText) {
+function openVoteModal(pollId, pollText, creatorID) {
+    console.log("Poll: Opening vote modal for poll:", pollId, "creator:", creatorID);
     currentPollId = pollId;
+    currentPollCreator = creatorID;
     selectedOption = null;
+
 
     const lines = pollText.split("<br>\n");
     const question = lines[0].replace("📊 Poll: ", "").trim();
 
-    const options = lines.slice(1).map(line =>
-        line.replace("[ ]", "").trim()
-    );
+    optionsInCurrentPoll = lines.slice(1).map(line => line.replace("[ ]", "").trim());
 
     document.getElementById("voteQuestion").innerText = question;
 
     const optContainer = document.getElementById("voteOptions");
     optContainer.innerHTML = "";
-    options.forEach(opt => {
+    optionsInCurrentPoll.forEach(opt => {
         const id = "opt-" + opt.replace(/\s/g, "_");
         optContainer.innerHTML += `
             <div style="margin: 5px 0;">
@@ -127,33 +129,47 @@ function closeVoteModal() {
 }
 
 function submitVote() {
-    if (!selectedOption) {
+    console.log("Poll: In submitVote, PollID:", currentPollId, "creator:", currentPollCreator);
+
+    if (selectedOption === null) {
         launch_snackbar("Please select an option");
         return;
     }
 
-    const voteMsg = `Voted: ${selectedOption}`;
+    if (!currentPollId || !currentPollCreator) {
+        alert("Missing poll context");
+        return;
+    }
+
+    // Prevent multiple votes in frontend
+    if (!window.votedPolls) window.votedPolls = {};
+    if (window.votedPolls[currentPollId]) {
+        launch_snackbar("You have already voted on this poll");
+        return;
+    }
+    window.votedPolls[currentPollId] = true;
+
+    // Build a binary array for all options, with 1 at selected index
+    const voteArray = optionsInCurrentPoll.map(opt => opt === selectedOption ? 1 : 0);
+
+    // Use BIPF-like vote message format
+    const bipfVotePayload = ["POV", currentPollId, voteArray];
+
+    const encodedPayload = btoa(JSON.stringify(bipfVotePayload));
 
     const ch = tremola.chats[curr_chat];
     if (!(ch.timeline instanceof Timeline)) {
         ch.timeline = Timeline.fromJSON(ch.timeline);
     }
-
     const tips = JSON.stringify(ch.timeline.get_tips());
-    const encodedText = btoa(voteMsg);
 
-    let cmd;
-    if (curr_chat === "ALL") {
-        // Public post
-        cmd = `publ:post ${tips} ${encodedText} null`;
-    } else {
-        // Private post
-        const recps = ch.members.join(' ');
-        cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
-    }
-
+    const cmd = `poll:vote ${tips} ${encodedPayload} null ${currentPollCreator}`;
     backend(cmd);
+    console.log("Poll: Sent cmd to backend:", cmd);
+
+
     closeVoteModal();
     launch_snackbar("Your vote has been sent.");
 }
+
 

@@ -205,7 +205,7 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
             const voteBtnId = `vote-btn-${p.key}`;
             txt += `
                 <br><br>
-                <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${txt}\`)">
+                <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${txt}\`, '${p.from}')">
                     🗳️ Vote
                 </button>
             `;
