@@ -153,14 +153,7 @@ class Repo(val context: MainActivity) {
         if (r == null) {
             return false
         }
-        val seq = r.state.max_seq + 1
         val success = r.ingest_entry_pkt(buf, r.state.max_seq + 1)
-        val payload = buf.sliceArray(48 until buf.size)
-        if(success){
-            context.voteIndexer.checkAndStoreIfPollVote(fid, seq, payload) { encrypted ->
-                context.idStore.identity.decryptPrivateMessage(encrypted)
-            }
-        }
         // if (success)
         //     want_is_valid = false
         return success

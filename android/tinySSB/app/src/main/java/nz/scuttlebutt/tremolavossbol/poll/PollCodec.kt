@@ -1,5 +1,6 @@
 package nz.scuttlebutt.tremolavossbol.poll
 
+import android.util.Log
 import nz.scuttlebutt.tremolavossbol.utils.Bipf
 import java.util.UUID
 
@@ -35,15 +36,14 @@ object PollCodec {
      */
     data class Vote(
         val pollId: String,
-        val optionIndex: Int,
-        val optionAnswer: Boolean
+        val answers: IntArray
     )
 
     //TODO
     /**
      * Creates a new unique poll ID
      */
-    fun generatePollId(): String = UUID.randomUUID().toString()
+    fun generatePollId(): String = UUID.randomUUID().toString().replace("-", "")
 
     /**
      * Encodes a poll object to BIPF format for storing in feed
@@ -68,8 +68,11 @@ object PollCodec {
         val lst = Bipf.mkList()
         Bipf.list_append(lst, TINYSSB_APP_POLL_VOTE) // Tag
         Bipf.list_append(lst, Bipf.mkString(vote.pollId))
-        Bipf.list_append(lst, Bipf.mkInt(vote.optionIndex))
-        Bipf.list_append(lst, Bipf.mkBool(vote.optionAnswer))
+        val voteBits = Bipf.mkList()
+        for (i in 0 until vote.answers.size) {
+            Bipf.list_append(voteBits, Bipf.mkInt(vote.answers[i]))
+        }
+        Bipf.list_append(lst, voteBits)
         return Bipf.encode(lst)
     }
 
@@ -91,14 +94,42 @@ object PollCodec {
     /**
      * Decodes a BIPF ByteArray to a vote instance
      */
-    fun decodeVote(payload: ByteArray): Vote? {
-        val root = Bipf.decode(payload) ?: return null
-        if (root.typ != Bipf.BIPF_LIST || root.cnt < 3) return null
-        val elems = root.getBipfList()
-        if (!elems[0].getBytes().contentEquals(TINYSSB_APP_POLL_VOTE.getBytes())) return null
-        val pollId = elems[1].getString()
-        val index = elems[2].getInt()
-        val answer = elems[3].getBoolean()
-        return Vote(pollId, index, answer)
+    fun decodeVote(encoded: ByteArray): Vote? {
+        try {
+            val root = Bipf.decode(encoded) ?: return null
+
+            if (root.typ != Bipf.BIPF_LIST) {
+                Log.e("decodeVote", "Root is not a BIPF list")
+                return null
+            }
+
+            val items = root.getBipfList()
+            if (items.size < 2) {
+                Log.e("decodeVote", "Vote list has insufficient items: ${items.size}")
+                return null
+            }
+
+            val tag = items[0]
+            if (tag.getString() != TINYSSB_APP_POLL_VOTE.getString()) {
+                Log.e("decodeVote", "Invalid vote tag: ${tag.getString()}")
+                return null
+            }
+
+            val pollId = items[1].getString()
+
+            val answersList = items[2]
+            if (answersList.typ != Bipf.BIPF_LIST) {
+                Log.e("decodeVote", "Answers is not a list")
+                return null
+            }
+
+            val answersBipf = answersList.getBipfList()
+            val answers = IntArray(answersBipf.size) { i -> answersBipf[i].getInt() }
+
+            return Vote(pollId, answers)
+        } catch (e: Exception) {
+            Log.e("decodeVote", "Error decoding vote: ${e.message}", e)
+            return null
+        }
     }
 }

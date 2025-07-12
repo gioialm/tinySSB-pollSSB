@@ -68,36 +68,22 @@ class VoteIndexer(private val context: Context) {
 
     fun checkAndStoreIfPollVote(fid: ByteArray, seq: Int, content: ByteArray, decrypt: (ByteArray) -> ByteArray?) {
         try {
-            Log.d("VoteIndexer", "checking message for POV tag")
-            val decoded = Bipf.decode(content)
-            if(decoded == null) {
-                Log.d("VoteIndexer", "Could not bipf decode")
+            Log.d("VoteIndexer", "checkAndStoreIfPollVote")
+            val bodyBytes = Bipf.decode(content)
+            if (bodyBytes == null) {
+                Log.d("VoteIndexer", "decoded bodyList is empty")
                 return
             }
-            Log.d("VoteIndexer", "bipf decode successful")
-            if (decoded.typ != Bipf.BIPF_LIST || decoded.cnt < 1) {
-                Log.d("VoteIndexer", "not of type BIPF_LIST")
-                return
+            val clear = decrypt(bodyBytes.getBytes())
+            if (clear != null) {
+                Log.d("VoteIndexer", "Decrypting body successful")
+                val vote = PollCodec.decodeVote(clear)
+                if (vote == null){
+                    Log.d("VoteIndexer", "PollCodec didn't encode a vote")
+                    return
+                }
+                enqueue(VoteReference(vote.pollId, fid, seq))
             }
-
-            val lst = decoded.getBipfList()
-            val encrypted = lst[0].getBytes()
-
-            val decrypted = decrypt(encrypted) ?: return
-            val inner = Bipf.decode(decrypted) ?: return
-            if (inner.typ != Bipf.BIPF_LIST || inner.cnt < 3) return
-
-            val innerList = inner.getBipfList()
-
-            Log.d("VoteIndexer", "Decrypted vote payload: ${innerList.joinToString(", ") { it.get().toString() }}")
-
-            val tag = innerList[0].getBytes()
-            if (!tag.contentEquals(PollCodec.TINYSSB_APP_POLL_VOTE.getBytes())) return
-
-            val pollId = innerList[1].getString()
-            enqueue(VoteReference(pollId, fid, seq))
-
-            Log.d("VoteIndexer", "Detected and enqueued vote for poll $pollId from ${fid.toBase64()} at seq $seq")
 
         } catch (e: Exception) {
             Log.e("VoteIndexer", "Failed to check packet", e)
