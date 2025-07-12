@@ -46,22 +46,6 @@ object PollCodec {
     fun generatePollId(): String = UUID.randomUUID().toString().replace("-", "")
 
     /**
-     * Encodes a poll object to BIPF format for storing in feed
-     */
-    fun encodePoll(poll: Poll): ByteArray? {
-        val lst = Bipf.mkList()
-        Bipf.list_append(lst, TINYSSB_APP_POLL) // Tag
-        Bipf.list_append(lst, Bipf.mkString(poll.id))
-        Bipf.list_append(lst, Bipf.mkString(poll.question))
-        val optList = Bipf.mkList()
-        for (opt in poll.options) {
-            Bipf.list_append(optList, Bipf.mkString(opt))
-        }
-        Bipf.list_append(lst, optList)
-        return Bipf.encode(lst)
-    }
-
-    /**
      * Encodes a vote instance as BIPF ByteArray
      */
     fun encodeVote(vote: Vote): ByteArray? {
@@ -74,21 +58,6 @@ object PollCodec {
         }
         Bipf.list_append(lst, voteBits)
         return Bipf.encode(lst)
-    }
-
-    /**
-     * Decodes a BIPF ByteArray to a poll instance
-     */
-    fun decodePoll(payload: ByteArray): Poll? {
-        val root = Bipf.decode(payload) ?: return null
-        if (root.typ != Bipf.BIPF_LIST || root.cnt < 4) return null
-        val elems = root.getBipfList()
-        if (!elems[0].getBytes().contentEquals(TINYSSB_APP_POLL.getBytes())) return null
-        val id = elems[1].getString()
-        val question = elems[2].getString()
-        val optsRaw = elems[3]
-        val opts = optsRaw.getBipfList().map { it.getString() }
-        return Poll(id, question, opts)
     }
 
     /**

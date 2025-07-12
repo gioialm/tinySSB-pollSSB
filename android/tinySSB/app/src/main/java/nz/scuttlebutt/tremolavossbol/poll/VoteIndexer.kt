@@ -40,12 +40,12 @@ class VoteIndexer(private val context: Context) {
         indexerJob?.cancel()
     }
 
-    fun isIdle(): Boolean {
+    private fun isIdle(): Boolean {
         return queue.isEmpty()
     }
 
     suspend fun awaitIdle() {
-        while (!queue.isEmpty()) {
+        while (!isIdle()) {
             delay(50)
         }
     }
