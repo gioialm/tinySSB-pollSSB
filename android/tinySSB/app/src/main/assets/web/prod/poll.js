@@ -3,33 +3,34 @@ let selectedOption = null;
 let currentPollCreator = null;
 let optionsInCurrentPoll = [];
 let currentResultMessage = null;
+MIN_OPTIONS = 2; // minimum allowed options
+MAX_OPTIONS = 5; // maximum allowed options
+let pollOptionCounter = 0; // tracks how many polls have ever been added, for unique IDs
 
 /**
- * chat_open_poll_creator()
+ * open_poll_creator()
  *
- * Opens a poll creation overlay on the screen if not already open. Includes input fields for a
- * poll question and two options, along with submit and cancel buttons.
- * TODO: Allow dynamic building of poll options.
+ * Opens a poll creation overlay on the screen if not already open. The new poll has a question
+ * and the minimum amount of options by default. Allows the user to add and remove options in the
+ * boundaries and provides submit and cancel buttons.
  */
-function chat_open_poll_creator() {
+function open_poll_creator() {
     const overlay = document.getElementById('poll-creator-menu');
-    if (!overlay) return;
+    const overlayBg = document.getElementById('overlay-bg')
+    if (!overlay | !overlayBg) return;
 
-    // Fills content
+    pollOptionCounter = 0;
+
     overlay.innerHTML = `
     <div style="text-align: center;">
         <h3>Create a New Poll</h3>
-        <label>Question:</label><br>
-        <input type="text" id="poll-question" style="width: 90%; margin: 10px 0;"><br>
+        <input type="text" id="poll-question" placeholder="Question" style="width: 90%; margin: 10px 0;"><br>
 
-        <label>Option 1:</label><br>
-        <input type="text" id="poll-option-1" style="width: 90%; margin: 5px 0;"><br>
-
-        <label>Option 2:</label><br>
-        <input type="text" id="poll-option-2" style="width: 90%; margin: 5px 0;"><br>
+        <div id="poll-options-container"></div>
+                <button onclick="add_poll_option()" style="margin: 10px;">➕ Add Option</button>
 
         <div style="margin-top: 20px;">
-            <button class="passive buttontext" onclick="chat_submit_poll_creator()" style="background-image: url('img/checked.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+            <button class="passive buttontext" onclick="submit_poll_creator()" style="background-image: url('img/checked.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
             <button class="passive buttontext" onclick="closeOverlay()" style="background-image: url('img/cancel.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
         </div>
     </div>
@@ -37,61 +38,42 @@ function chat_open_poll_creator() {
 
     overlay.style.display = 'block';
     requestAnimationFrame(() => overlay.classList.add('show'));
+    overlayBg.style.display = 'initial';
+    overlayBg.onclick = () => closeOverlay();
     overlayIsActive = true;
+
+    for (let i = 0; i < MIN_OPTIONS; i++) {
+        add_poll_option();
+    }
 }
 
 /**
- * chat_submit_poll_creator()
+ * submit_poll_creator()
  *
- * Collects poll input values and closes the overlay if all fields are filled. If any field is
- * empty, a snackbar message is shown to the user.
- * Currently allows exactly 2 options
- * TODO: Allow dynamic building of poll options.
+ * Gathers the question and poll options from the input fields, validates them, and sends the poll
+ * data to the backend. Requires the options and the question fields to be filled. Adds
+ * location metadata if available. Encodes the data and sends command to backend on whether
+ * the chat is public or private. Closes the overlay and shows a confirmation snackbar on success.
  */
-function chat_submit_poll_creator() {
+function submit_poll_creator() {
     const question = document.getElementById('poll-question')?.value;
-    const option1 = document.getElementById('poll-option-1')?.value;
-    const option2 = document.getElementById('poll-option-2')?.value;
+    const options = get_current_poll_options();
 
-    // Shows snackbar if any of the fields are empty
-    if (!question || !option1 || !option2) {
+    if (!is_poll_filled(question, options)) {
         launch_snackbar("Please fill in all fields.");
         return;
     }
 
-    // Build JSON payload
     const pollData = {
         type: "poll:create",
         question: question,
-        options: [option1, option2] //TODO: more than two options
+        options: options
     };
 
-    var payload = ''
-        if (Android.isGeoLocationEnabled() == "true") {
-            var plusCode = Android.getCurrentLocationAsPlusCode();
-            if (plusCode != null && plusCode.length > 0) //check if we actually received a location
-                payload += "pfx:loc/plus," + plusCode + "|";
-        }
+    const payload = encode_poll_payload(pollData);
+    const command = build_poll_command(payload);
 
-    payload += JSON.stringify(pollData);
-    const encodedPayload = btoa(payload);
-
-    var ch = tremola.chats[curr_chat];
-        if (!(ch.timeline instanceof Timeline)) {
-            ch.timeline = Timeline.fromJSON(ch.timeline);
-        }
-    let tips = JSON.stringify(ch.timeline.get_tips());
-
-    let cmd;
-    if(curr_chat == "ALL") {
-        cmd = `publ:poll ${tips} ${encodedPayload} null`;
-    } else {
-        let recps = tremola.chats[curr_chat].members.join(' ');
-        cmd = `priv:poll ${tips} ${encodedPayload} null ${recps}`;
-
-    }
-
-    backend(cmd);
+    backend(command);
     closeOverlay();
     launch_snackbar("Poll created successfully");
 }
@@ -230,4 +212,145 @@ function closeResultsModal() {
 }
 
 
+/**
+ * add_poll_option()
+ *
+ * Adds a new input field for a poll option. Each option is labeled with a placeholder. Prevents
+ * exceeding the maximum. Renumbers placeholders to ensure uniqueness.
+ */
+function add_poll_option() {
+    if (get_current_poll_option_count() >= MAX_OPTIONS) {
+        launch_snackbar("The poll can have at most " + MAX_OPTIONS + " options.");
+        return;
+    }
 
+    pollOptionCounter++;
+    const optionId = `poll-option-${pollOptionCounter}`;
+    const optionDiv = document.createElement('div');
+    optionDiv.id = `poll-opt-div-${pollOptionCounter}`;
+    optionDiv.style.margin = "5px";
+
+    optionDiv.innerHTML = `
+        <input type="text" id="${optionId}" placeholder="Option ${get_current_poll_option_count() + 1}" style="width: 80%;" />
+        <button onclick="remove_poll_option('${optionDiv.id}')" style="margin-left: 5px;">❌</button>
+    `;
+
+    const container = document.getElementById('poll-options-container');
+    container.appendChild(optionDiv);
+    renumber_poll_option_placeholders();
+}
+
+/**
+ * remove_poll_option(id)
+ *
+ * Removes a poll option input field by its container ID.
+ * Prevents removing below the minimum. Renumbers placeholders to ensure uniqueness.
+ *
+ * @param {string} id - The DOM element ID of the poll option container to remove.
+ */
+function remove_poll_option(id) {
+    if (get_current_poll_option_count() <= MIN_OPTIONS) {
+        launch_snackbar("A poll must have at least " + MIN_OPTIONS +" options.");
+        return;
+    }
+
+    const option = document.getElementById(id);
+    if (option) option.remove();
+
+    renumber_poll_option_placeholders();
+}
+
+/**
+ * get_current_poll_option_count()
+ *
+ * Counts and returns the number of currently visible poll option input fields in the DOM.
+ *
+ * @returns {number} The current number of poll option inputs.
+ */
+function get_current_poll_option_count() {
+    return document.querySelectorAll('#poll-options-container input[type="text"]').length;
+}
+
+/**
+ * get_current_poll_options()
+ *
+ * Collects and returns all non-empty poll option values from the UI.
+ *
+ * @returns {string[]} Array of poll option texts entered by the user.
+ */
+function get_current_poll_options() {
+    const inputs = document.querySelectorAll('#poll-options-container input[type="text"]');
+    return Array.from(inputs)
+        .map(input => input.value.trim())
+        .filter(text => text.length > 0);
+}
+
+/**
+ * is_poll_filled(question, options)
+ *
+ * Validates that the poll question is non-empty and all options are filled and that no option is
+ * only whitespace.
+ *
+ * @param {string} question - The poll question to validate.
+ * @param {string[]} options - The list of poll options to validate.
+ * @returns {boolean} - True if the question and all options are properly filled, false otherwise.
+ */
+function is_poll_filled(question, options) {
+    if (!question || !Array.isArray(options)) return false;
+    return options.every(opt => typeof opt === 'string' && opt.trim().length > 0);
+}
+
+/**
+ * renumber_poll_option_placeholders()
+ *
+ * Renames all poll option input placeholders in order, based on their current position in the DOM.
+ */
+function renumber_poll_option_placeholders() {
+    const inputs = document.querySelectorAll('#poll-options-container input[type="text"]');
+    inputs.forEach((input, index) => { input.placeholder = `Option ${index + 1}`; });
+}
+
+/**
+ * encode_poll_payload(pollData)
+ *
+ * Serializes and base64-encodes poll data. Optionally includes geolocation prefix if location
+ * sharing is enabled and a valid Plus Code is available.
+ *
+ * @param {Object} pollData - The poll object to encode.
+ * @returns {string} - String of the serialized poll data, with prefix.
+ */
+function encode_poll_payload(pollData) {
+    let payload = '';
+    if (Android.isGeoLocationEnabled() === "true") {
+        const plusCode = Android.getCurrentLocationAsPlusCode();
+        if (plusCode && plusCode.length > 0) {
+            payload += "pfx:loc/plus," + plusCode + "|";
+        }
+    }
+    payload += JSON.stringify(pollData);
+    return btoa(payload);
+}
+
+/**
+ * build_poll_command(encodedPayload)
+ *
+ * Constructs the appropriate backend command for sending a poll, depending on whether the
+ * chat is public or private. Includes chat tips and recipients.
+ *
+ * @param {string} encodedPayload - The base64-encoded poll data.
+ * @returns {string} - The backend command string to submit the poll.
+ */
+function build_poll_command(encodedPayload) {
+    const ch = tremola.chats[curr_chat];
+    if (!(ch.timeline instanceof Timeline)) {
+        ch.timeline = Timeline.fromJSON(ch.timeline);
+    }
+    const tips = JSON.stringify(ch.timeline.get_tips());
+
+    if (curr_chat === "ALL") {
+        return `publ:poll ${tips} ${encodedPayload} null`;
+    } else {
+        const recps = ch.members.join(" ");
+    return `priv:poll ${tips} ${encodedPayload} null ${recps}`;
+    }
+}
