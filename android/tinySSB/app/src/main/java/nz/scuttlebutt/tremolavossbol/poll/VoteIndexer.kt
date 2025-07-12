@@ -98,6 +98,20 @@ class VoteIndexer(private val context: Context) {
         queue.add(reference)
     }
 
+    fun clearIndex() {
+        try {
+            val pollIndexDir = File(context.filesDir, POLL_PATH)
+            if (pollIndexDir.exists()) {
+                pollIndexDir.deleteRecursively()
+                Log.d("VoteIndexer", "Cleared all poll index files and folders")
+            } else {
+                Log.d("VoteIndexer", "No poll index directory found to clear")
+            }
+        } catch (e: Exception) {
+            Log.e("VoteIndexer", "Failed to clear poll index", e)
+        }
+    }
+
     private suspend fun runIndexerLoop() {
         while (isRunning.get()) {
             if (queue.isEmpty()) {
