@@ -263,6 +263,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                     val poll = jsonStr?.let {
                         val obj = JSONObject(it)
                         val id = obj.optString("id", PollCodec.generatePollId())
+                        Log.d("priv:poll", "Poll ID assigned: $id")
                         val question = obj.getString("question")
                         val options = obj.getJSONArray("options").let { arr ->
                             List(arr.length()) { i -> arr.getString(i) }
@@ -321,6 +322,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                     val poll = jsonStr?.let {
                         val obj = JSONObject(it)
                         val id = obj.optString("id", PollCodec.generatePollId())
+                        Log.d("priv:poll", "Poll ID assigned: $id")
                         val question = obj.getString("question")
                         val options = obj.getJSONArray("options").let { arr ->
                             List(arr.length()) { i -> arr.getString(i) }

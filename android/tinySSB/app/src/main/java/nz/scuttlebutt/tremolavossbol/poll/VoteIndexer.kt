@@ -136,7 +136,7 @@ class VoteIndexer(private val context: Context) {
     private fun writeToFile(ref: VoteReference) {
         try {
             Log.d("VoteIndexer", "trying to write to file")
-            val pollDir = File(context.filesDir, POLL_PATH + ref.pollId)
+            val pollDir = File(context.filesDir, POLL_PATH + ref.pollId.replace("/", "_"))
             pollDir.mkdirs()
             val fidB64 = ref.fid.toBase64().replace("/", "_") // safe filename
             val file = File(pollDir, "$fidB64.json")

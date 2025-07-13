@@ -35,7 +35,8 @@ class PollCollector(
         voteIndexer.awaitIdle()
         Log.d("PollCollector", "in collectVotes")
         val collected = mutableListOf<PollCodec.Vote>()
-        val pollDir = File(context.filesDir, "poll_index/$pollId")
+        Log.d("PollCollector", "pollID: $pollId")
+        val pollDir = File(context.filesDir, "poll_index/${pollId.replace("/", "_")}")
 
         val files = pollDir.listFiles() ?: return collected
         for (file in files) {
@@ -50,26 +51,27 @@ class PollCollector(
                 continue
             }
 
-            for (seq in seqs) {
-                val pkt = repo.feed_read_content(fid, seq) ?: continue
-                val bodyBytes = Bipf.decode(pkt)
-                if (bodyBytes == null) {
-                    Log.d("PollCollector", "decoded bodyList is empty")
+            if (seqs.isEmpty()) continue
+            val seq = seqs.first()
+
+            val pkt = repo.feed_read_content(fid, seq) ?: continue
+            val bodyBytes = Bipf.decode(pkt)
+            if (bodyBytes == null) {
+                Log.d("PollCollector", "decoded bodyList is empty")
+                continue
+            }
+            if (bodyBytes.typ != Bipf.BIPF_BYTES) {
+                Log.d("PollCollector", "")
+            }
+            val clear = decrypt(bodyBytes.getBytes())
+            if (clear != null) {
+                Log.d("PollCollector", "Decrypting body successful")
+                val vote = PollCodec.decodeVote(clear)
+                if (vote == null) {
+                    Log.d("PollCollector", "PollCodec didn't encode a vote")
                     continue
                 }
-                if (bodyBytes.typ != Bipf.BIPF_BYTES) {
-                    Log.d("PollCollector", "")
-                }
-                val clear = decrypt(bodyBytes.getBytes())
-                if (clear != null) {
-                    Log.d("PollCollector", "Decrypting body successful")
-                    val vote = PollCodec.decodeVote(clear)
-                    if (vote == null) {
-                        Log.d("PollCollector", "PollCodec didn't encode a vote")
-                        continue
-                    }
-                    collected.add(vote)
-                }
+                collected.add(vote)
             }
         }
 
@@ -89,12 +91,11 @@ class PollCollector(
         val counts = MutableList(numOptions) { 0 }
 
         for (vote in votes) {
-            for (answer in vote.answers) {
-                if (answer in 0 until numOptions) {
-                    if(answer == 1) counts[answer]++
-
-                } else {
-                    Log.w("PollCollector", "Invalid answer index: $answer")
+            for (i in 0 until numOptions) {
+                if (vote.answers[i] == 1) {
+                    Log.d("PollCollector", "$vote, answer $i is ${vote.answers[i]}")
+                    counts[i] += 1
+                    Log.d("PollCollector", "counts at position $i increased to ${counts[i]}")
                 }
             }
         }
