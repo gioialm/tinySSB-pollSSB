@@ -57,6 +57,9 @@ class PollCollector(
                     Log.d("PollCollector", "decoded bodyList is empty")
                     continue
                 }
+                if (bodyBytes.typ != Bipf.BIPF_BYTES) {
+                    Log.d("PollCollector", "")
+                }
                 val clear = decrypt(bodyBytes.getBytes())
                 if (clear != null) {
                     Log.d("PollCollector", "Decrypting body successful")
@@ -88,7 +91,8 @@ class PollCollector(
         for (vote in votes) {
             for (answer in vote.answers) {
                 if (answer in 0 until numOptions) {
-                    counts[answer]++
+                    if(answer == 1) counts[answer]++
+
                 } else {
                     Log.w("PollCollector", "Invalid answer index: $answer")
                 }

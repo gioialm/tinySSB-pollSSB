@@ -51,11 +51,10 @@ class VoteIndexer(private val context: Context) {
     }
 
     /**
-     * Asynchronously checks whether a given feed entry is a poll vote (TINYSSB_APP_POLL_VOTE),
+     * Checks whether a given feed entry is a poll vote (TINYSSB_APP_POLL_VOTE),
      * and if so, stores a reference to it in the background index for later tallying.
      *
-     * This function is intended to be called on each incoming feed entry, but runs in a coroutine
-     * to avoid blocking decryption or file I/O on the main thread.
+     * This function is intended to be called on each incoming feed entry.
      *
      * @param fid The feed ID of the peer who sent the entry.
      * @param seq The sequence number of the entry within that feed.
@@ -72,6 +71,10 @@ class VoteIndexer(private val context: Context) {
             val bodyBytes = Bipf.decode(content)
             if (bodyBytes == null) {
                 Log.d("VoteIndexer", "decoded bodyList is empty")
+                return
+            }
+            if (!bodyBytes.isBytes()) {
+                Log.d("VoteIndexer", "Skipping non-encrypted message (typ=${bodyBytes.typ})")
                 return
             }
             val clear = decrypt(bodyBytes.getBytes())

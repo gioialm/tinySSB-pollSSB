@@ -6,6 +6,7 @@ let currentResultMessage = null;
 MIN_OPTIONS = 2; // minimum allowed options
 MAX_OPTIONS = 5; // maximum allowed options
 let pollOptionCounter = 0; // tracks how many polls have ever been added, for unique IDs
+let pollOptionsMap = {};
 
 /**
  * open_poll_creator()
@@ -17,7 +18,7 @@ let pollOptionCounter = 0; // tracks how many polls have ever been added, for un
 function open_poll_creator() {
     const overlay = document.getElementById('poll-creator-menu');
     const overlayBg = document.getElementById('overlay-bg')
-    if (!overlay | !overlayBg) return;
+    if (!overlay || !overlayBg) return;
 
     pollOptionCounter = 0;
 
@@ -155,9 +156,11 @@ function submitVote() {
     launch_snackbar("Your vote has been sent.");
 }
 
+
 function openResultsModal(pollId) {
     console.log("Opening results for poll:", pollId);
 
+    /* Uncomment hardcoded results for testing
     const question = "Do you want to go on holiday?";
     const results = [
         { option: "Yes", votes: 5 },
@@ -172,12 +175,17 @@ function openResultsModal(pollId) {
         results.map(r => `${r.option}: ${r.votes} vote${r.votes !== 1 ? 's' : ''}`).join('\n');
 
     currentResultMessage = textSummary;
+    */
+
+    const question = "No results yet";
+    const resultsHtml = `<p style="color: gray;">Tallying in progress or no votes received yet.</p>`;
 
     document.getElementById("resultsTitle").innerText = question;
     document.getElementById("resultsBody").innerHTML = resultsHtml;
 
     document.getElementById("resultsModal").style.display = "block";
 }
+
 
 function sendPollResults() {
     if (!currentResultMessage) {
@@ -205,6 +213,42 @@ function sendPollResults() {
     backend(cmd);
     closeResultsModal();
     launch_snackbar("Results sent");
+}
+
+/**
+    sends a tally request to the backend.
+*/
+function requestVoteTallying() {
+        backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
+        launch_snackbar("Tally requested");
+}
+
+/** called from the backend to
+*/
+
+function b2f_showPollTally(pollId, countsArray) {
+    console.log("Received poll results for", pollId, countsArray);
+    if (!Array.isArray(countsArray) || countsArray.length !== optionsInCurrentPoll.length) {
+            launch_snackbar("Mismatch in poll results");
+            return;
+    }
+
+    const question = document.getElementById("voteQuestion").innerText;
+        const resultsHtml = optionsInCurrentPoll.map((option, index) => {
+            const votes = countsArray[index] || 0;
+            const icon = votes > 0 ? "✅" : "❌";
+            return `<p>${icon} <b>${option}</b> — ${votes} vote${votes !== 1 ? 's' : ''}</p>`;
+        }).join("");
+
+        const textSummary = `Results for: ${question}\n` +
+            optionsInCurrentPoll.map((opt, idx) => `${opt}: ${countsArray[idx]} vote${countsArray[idx] !== 1 ? 's' : ''}`).join("\n");
+
+        currentResultMessage = textSummary;
+
+        document.getElementById("resultsTitle").innerText = question;
+        document.getElementById("resultsBody").innerHTML = resultsHtml;
+        document.getElementById("resultsModal").style.display = "block";
+
 }
 
 function closeResultsModal() {

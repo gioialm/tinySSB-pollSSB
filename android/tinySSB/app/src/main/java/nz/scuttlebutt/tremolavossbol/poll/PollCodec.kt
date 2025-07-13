@@ -39,7 +39,6 @@ object PollCodec {
         val answers: IntArray
     )
 
-    //TODO
     /**
      * Creates a new unique poll ID
      */

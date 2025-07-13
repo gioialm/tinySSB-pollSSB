@@ -18,6 +18,8 @@ import com.google.zxing.integration.android.IntentIntegrator
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Tasks
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -27,6 +29,7 @@ import nz.scuttlebutt.tremolavossbol.utils.Bipf
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_BYTES
 import nz.scuttlebutt.tremolavossbol.utils.Bipf.Companion.BIPF_LIST
 import nz.scuttlebutt.tremolavossbol.poll.PollCodec
+import nz.scuttlebutt.tremolavossbol.poll.PollCollector
 import nz.scuttlebutt.tremolavossbol.poll.VoteReference
 
 import nz.scuttlebutt.tremolavossbol.utils.Constants.Companion.TINYSSB_APP_IAM
@@ -388,6 +391,18 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 }
                 return
             }
+
+            "poll:tally" -> {
+                val pollCollector = PollCollector(act, act.tinyRepo, act.idStore.identity, act.voteIndexer)
+                val pollID = args[1]
+                val optionAmnt = args[2].toInt()
+                GlobalScope.launch {
+                    val counts = pollCollector.tallyVotes(pollID, optionAmnt)
+                    Log.d("poll:tally", "Counts: $counts")
+                    eval("b2f_showPollTally(`$pollID`, ${JSONArray(counts)})")
+                }
+            }
+
             "get:media" -> {
                 if (checkSelfPermission(act, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(act, "No permission to access media files",
