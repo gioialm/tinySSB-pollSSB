@@ -99,7 +99,8 @@ function openVoteModal(pollId, pollText, creatorID) {
     const optContainer = document.getElementById("voteOptions");
     optContainer.innerHTML = "";
 
-    const isClosed = closedPolls[pollId];
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+    const isClosed = sentResults[pollId];
 
     if (isClosed) {
         // 🛑 Poll is closed — show only message and cancel button
@@ -149,6 +150,7 @@ function submitVote() {
 
     // Use localStorage for persistent double-vote prevention
     const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
     if (votedPolls[currentPollId]) {
         launch_snackbar("You have already voted on this poll");
         return;
@@ -204,9 +206,10 @@ function sendPollResults() {
         return;
     }
 
-    if (closedPolls[currentPollId] === true) {
+    // ✅ Prevent re-sending if already sent (persistent via localStorage)
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+    if (sentResults[currentPollId]) {
         launch_snackbar("You already published these results.");
-        console.log("in closedPolls[currentPollId] === sent");
         return;
     }
 
@@ -215,7 +218,7 @@ function sendPollResults() {
         return;
     }
 
-    let finalMessage = `[poll_closed:${currentPollId}]\n` + currentResultMessage;
+    const finalMessage = `[poll_closed:${currentPollId}]\n` + currentResultMessage;
     const encodedText = btoa(finalMessage);
 
     const ch = tremola.chats[curr_chat];
@@ -232,7 +235,9 @@ function sendPollResults() {
         cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
     }
 
-    closedPolls[currentPollId] = true;
+    // ✅ Store persistently that this poll's results were sent
+    sentResults[currentPollId] = true;
+    localStorage.setItem("sentResults", JSON.stringify(sentResults));
 
     backend(cmd);
     closeResultsModal();
@@ -251,7 +256,6 @@ function requestVoteTallying() {
 */
 function b2f_showPollTally(pollId, countsArray) {
     console.log("Received poll results for", pollId, countsArray);
-
     if (!Array.isArray(countsArray) || countsArray.length !== optionsInCurrentPoll.length) {
         launch_snackbar("Mismatch in poll results");
         return;
