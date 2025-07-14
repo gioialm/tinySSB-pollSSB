@@ -204,7 +204,7 @@ function sendPollResults() {
         return;
     }
 
-    if (closedPolls[currentPollId] === "sent") {
+    if (closedPolls[currentPollId] === true) {
         launch_snackbar("You already published these results.");
         console.log("in closedPolls[currentPollId] === sent");
         return;
@@ -232,7 +232,7 @@ function sendPollResults() {
         cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
     }
 
-    closedPolls[currentPollId] = "sent";
+    closedPolls[currentPollId] = true;
 
     backend(cmd);
     closeResultsModal();
