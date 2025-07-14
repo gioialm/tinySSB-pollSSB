@@ -224,43 +224,38 @@ function b2f_showPollTally(pollId, countsArray) {
 
     const question = document.getElementById("voteQuestion").innerText;
 
-    // Determine the highest vote count
+    // Determine winner(s)
     const maxVotes = Math.max(...countsArray);
+    const winners = countsArray.map((v, i) => v === maxVotes && v > 0);
 
-    // Total number of votes
-    const totalVotes = countsArray.reduce((sum, count) => sum + count, 0);
+    // Format each option with vote count and highlight winner
+    const resultsHtml = optionsInCurrentPoll.map((option, index) => {
+        const votes = countsArray[index] || 0;
+        const style = winners[index] ? "font-weight: bold; color: green;" : "";
+        return `<p style="${style}">${option} — ${votes} vote${votes !== 1 ? 's' : ''}</p>`;
+    }).join("");
 
-    // Estimate expected voters
+    // Compute total votes and expected voters
+    let totalVotes = countsArray.reduce((a, b) => a + b, 0);
     let expectedVoters = 0;
+
     const ch = tremola.chats[curr_chat];
-    if (ch && ch.members && Array.isArray(ch.members)) {
+    if (curr_chat === "ALL") {
+        expectedVoters = "ALL";
+    } else if (ch && ch.members && Array.isArray(ch.members)) {
         expectedVoters = ch.members.length;
     }
 
-    // Build "X of Y voted" line
-    const participationText = expectedVoters > 0
-        ? `<p style="margin-bottom: 10px; font-style: italic;">${totalVotes} of ${expectedVoters} voted</p>`
-        : `<p style="margin-bottom: 10px; font-style: italic;">${totalVotes} votes submitted</p>`;
+    const votedSummary = (expectedVoters === "ALL")
+        ? `${totalVotes} of ALL voted`
+        : `${totalVotes} of ${expectedVoters} voted`;
 
-    // Build result entries
-    const resultsHtml = optionsInCurrentPoll.map((option, index) => {
-        const votes = countsArray[index] || 0;
-        const isWinner = votes === maxVotes && maxVotes > 0;
-
-        const style = isWinner
-            ? "background-color: #d4edda; padding: 5px; border-radius: 5px;"  // light green
-            : "";
-
-        return `<p style="${style}"><b>${option}</b> — ${votes} vote${votes !== 1 ? 's' : ''}</p>`;
-    }).join("");
-
-    const textSummary = `Results for: ${question}\n` +
+    currentResultMessage = `Results for: ${question}\n` +
         optionsInCurrentPoll.map((opt, idx) => `${opt}: ${countsArray[idx]} vote${countsArray[idx] !== 1 ? 's' : ''}`).join("\n");
 
-    currentResultMessage = textSummary;
-
     document.getElementById("resultsTitle").innerText = question;
-    document.getElementById("resultsBody").innerHTML = participationText + resultsHtml;
+    document.getElementById("resultsBody").innerHTML = resultsHtml +
+        `<hr><p style="color: gray; font-size: small;">${votedSummary}</p>`;
     document.getElementById("resultsModal").style.display = "block";
 }
 
