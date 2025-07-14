@@ -200,25 +200,29 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
     if (p["body"] != null) {
         // txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
         txt = otherText;
-        // To display vote button on poll msgs:
+        // To display vote button and result button poll msgs:
         if (txt.startsWith("📊 Poll:")) {
             const voteBtnId = `vote-btn-${p.key}`;
+            const resultsBtnId = `results-btn-${p.key}`;
+
+            const pollText = txt;
+
             txt += `
-                <br><br>
-                <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${txt}\`, '${p.from}')">
-                    🗳️ Vote
-                </button>
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${pollText}\`, '${p.from}')">
+                        🗳️ Vote
+                    </button>
             `;
 
-            // Result button only for the poll creator
             if (p.from === myId) {
-                const resultsBtnId = `results-btn-${p.key}`;
                 txt += `
-                    <button id="${resultsBtnId}" onclick="openResultsModal('${p.key}')">
+                    <button id="${resultsBtnId}" onclick="openResultsModal('${p.key}', \`${pollText}\`)">
                         📊 Results
                     </button>
                 `;
             }
+
+            txt += `</div>`;
         }
 
         // Sketch app

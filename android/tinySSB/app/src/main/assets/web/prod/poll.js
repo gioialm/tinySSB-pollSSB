@@ -157,35 +157,28 @@ function submitVote() {
 }
 
 
-function openResultsModal(pollId) {
+function openResultsModal(pollId, pollText) {
     console.log("Opening results for poll:", pollId);
 
-    /* Uncomment hardcoded results for testing
-    const question = "Do you want to go on holiday?";
-    const results = [
-        { option: "Yes", votes: 5 },
-        { option: "No", votes: 0 }
-    ];
+    currentPollId = pollId;
 
-    const resultsHtml = results.map(r =>
-        `<p>${r.votes > 0 ? '✅' : '❌'} <b>${r.option}</b> — ${r.votes} vote${r.votes !== 1 ? 's' : ''}</p>`
-    ).join("");
+    if (!pollText) {
+        launch_snackbar("Poll metadata missing");
+        return;
+    }
 
-    const textSummary = `Results for: ${question}\n` +
-        results.map(r => `${r.option}: ${r.votes} vote${r.votes !== 1 ? 's' : ''}`).join('\n');
-
-    currentResultMessage = textSummary;
-    */
-
-    const question = "No results yet";
-    const resultsHtml = `<p style="color: gray;">Tallying in progress or no votes received yet.</p>`;
+    const lines = pollText.split("<br>\n");
+    const question = lines[0].replace("📊 Poll: ", "").trim();
+    optionsInCurrentPoll = lines.slice(1).map(line => line.replace("[ ]", "").trim());
 
     document.getElementById("resultsTitle").innerText = question;
-    document.getElementById("resultsBody").innerHTML = resultsHtml;
+    document.getElementById("resultsBody").innerHTML = `<p style="color: gray;">Please wait while votes are being counted...</p>`;
+
+    // start tally
+    backend(`poll:tally ${pollId} ${optionsInCurrentPoll.length}`);
 
     document.getElementById("resultsModal").style.display = "block";
 }
-
 
 function sendPollResults() {
     if (!currentResultMessage) {
@@ -220,7 +213,7 @@ function sendPollResults() {
 */
 function requestVoteTallying() {
         backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
-        launch_snackbar("Tally requested");
+        launch_snackbar("Update requested");
 }
 
 /** called from the backend to
