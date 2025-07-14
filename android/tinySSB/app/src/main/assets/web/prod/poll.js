@@ -96,6 +96,12 @@ function open_poll_voter(pollId, pollText, creatorID) {
     currentPollCreator = creatorID;
     selectedOption = null;
 
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    if (votedPolls[pollId]) {
+        launch_snackbar("You have already voted on this poll.");
+        return;
+    }
+
     const overlay = document.getElementById('poll-voter-menu');
     const overlayBg = document.getElementById("overlay-bg");
     if (!overlay || !overlayBg) return;
@@ -139,13 +145,18 @@ function open_poll_voter(pollId, pollText, creatorID) {
 function submit_poll_voter() {
     console.log("Poll: In submit_poll_voter, PollID:", currentPollId, "creator:", currentPollCreator);
 
+    if (!currentPollId || !currentPollCreator) {
+        alert("Missing poll context");
+        return;
+    }
+
     if (selectedOption === null) {
         launch_snackbar("Please select an option");
         return;
     }
 
-    if (!currentPollId || !currentPollCreator) {
-        alert("Missing poll context");
+    if (!Array.isArray(optionsInCurrentPoll) || optionsInCurrentPoll.length === 0) {
+        launch_snackbar("Poll options not loaded.");
         return;
     }
 
