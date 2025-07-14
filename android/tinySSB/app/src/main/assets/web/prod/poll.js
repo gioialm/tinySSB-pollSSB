@@ -248,9 +248,16 @@ function sendPollResults() {
 *   Send a tally request to the backend.
 */
 function requestVoteTallying() {
-        backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
-        launch_snackbar("Update requested");
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+    if (sentResults[currentPollId]) {
+        launch_snackbar("This poll is closed. You cannot update the results.");
+        return;
+    }
+
+    backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
+    launch_snackbar("Update requested");
 }
+
 
 /**
 * Called from the backend to update the poll results
