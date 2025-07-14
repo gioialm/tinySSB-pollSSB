@@ -125,20 +125,18 @@ function submitVote() {
         return;
     }
 
-    // Prevent multiple votes in frontend
-    if (!window.votedPolls) window.votedPolls = {};
-    if (window.votedPolls[currentPollId]) {
+    // Use localStorage for persistent double-vote prevention
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    if (votedPolls[currentPollId]) {
         launch_snackbar("You have already voted on this poll");
         return;
     }
-    window.votedPolls[currentPollId] = true;
 
-    // Build a binary array for all options, with 1 at selected index
+    votedPolls[currentPollId] = true;
+    localStorage.setItem("votedPolls", JSON.stringify(votedPolls));
+
     const voteArray = optionsInCurrentPoll.map(opt => opt === selectedOption ? 1 : 0);
-
-    // Use BIPF-like vote message format
     const bipfVotePayload = ["POV", currentPollId, voteArray];
-
     const encodedPayload = btoa(JSON.stringify(bipfVotePayload));
 
     const ch = tremola.chats[curr_chat];
@@ -151,11 +149,9 @@ function submitVote() {
     backend(cmd);
     console.log("Poll: Sent cmd to backend:", cmd);
 
-
     closeVoteModal();
     launch_snackbar("Your vote has been sent.");
 }
-
 
 function openResultsModal(pollId, pollText) {
     console.log("Opening results for poll:", pollId);

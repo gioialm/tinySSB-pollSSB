@@ -181,6 +181,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 act.idStore.setNewIdentity(null) // creates new identity
                 act.tinyRepo.reset()
                 act.voteIndexer.clearIndex() // clear indexed poll votes
+                eval("localStorage.removeItem('votedPolls')")
 
                 if (act.websocket != null)
                     act.websocket!!.stop()
