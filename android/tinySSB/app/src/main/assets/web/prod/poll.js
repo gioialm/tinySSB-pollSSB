@@ -7,6 +7,7 @@ MIN_OPTIONS = 2; // minimum allowed options
 MAX_OPTIONS = 5; // maximum allowed options
 let pollOptionCounter = 0; // tracks how many polls have ever been added, for unique IDs
 let pollOptionsMap = {};
+let closedPolls = {}; // key = pollId, value = true if closed
 
 /**
  * open_poll_creator()
@@ -85,27 +86,48 @@ function openVoteModal(pollId, pollText, creatorID) {
     currentPollCreator = creatorID;
     selectedOption = null;
 
-
     const lines = pollText.split("<br>\n");
     const question = lines[0].replace("📊 Poll: ", "").trim();
-
     optionsInCurrentPoll = lines.slice(1).map(line => line.replace("[ ]", "").trim());
 
+    const voteModal = document.getElementById("voteModal");
+    voteModal.style.display = "block";
+
+    // Set the question
     document.getElementById("voteQuestion").innerText = question;
 
     const optContainer = document.getElementById("voteOptions");
     optContainer.innerHTML = "";
-    optionsInCurrentPoll.forEach(opt => {
-        const id = "opt-" + opt.replace(/\s/g, "_");
-        optContainer.innerHTML += `
-            <div style="margin: 5px 0;">
-                <input type="radio" id="${id}" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
-                <label for="${id}" style="margin-left: 5px;">${opt}</label>
-            </div>`;
-    });
 
-    document.getElementById("voteModal").style.display = "block";
+    const isClosed = closedPolls[pollId];
+
+    if (isClosed) {
+        // 🛑 Poll is closed — show only message and cancel button
+        const info = document.createElement("p");
+        info.innerText = "🛑 This poll is closed. The results have been published.";
+        info.style.color = "gray";
+        info.style.marginTop = "10px";
+        optContainer.appendChild(info);
+
+        // Hide submit button
+        voteModal.querySelector("button[onclick='submitVote()']").style.display = "none";
+    } else {
+        // ✅ Poll is open — show options and submit/cancel
+        optionsInCurrentPoll.forEach(opt => {
+            const id = "opt-" + opt.replace(/\s/g, "_");
+            optContainer.innerHTML += `
+                <div style="margin: 5px 0;">
+                    <input type="radio" id="${id}" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
+                    <label for="${id}" style="margin-left: 5px;">${opt}</label>
+                </div>`;
+        });
+
+        // Show submit button
+        voteModal.querySelector("button[onclick='submitVote()']").style.display = "inline-block";
+    }
 }
+
+
 
 
 function closeVoteModal() {
@@ -177,18 +199,29 @@ function openResultsModal(pollId, pollText) {
 }
 
 function sendPollResults() {
+    if (!currentPollId) {
+        launch_snackbar("Invalid poll context");
+        return;
+    }
+
+    if (closedPolls[currentPollId] === "sent") {
+        launch_snackbar("You already published these results.");
+        console.log("in closedPolls[currentPollId] === sent");
+        return;
+    }
+
     if (!currentResultMessage) {
         launch_snackbar("Nothing to send");
         return;
     }
 
-    const encodedText = btoa(currentResultMessage);
+    let finalMessage = `[poll_closed:${currentPollId}]\n` + currentResultMessage;
+    const encodedText = btoa(finalMessage);
 
     const ch = tremola.chats[curr_chat];
     if (!(ch.timeline instanceof Timeline)) {
         ch.timeline = Timeline.fromJSON(ch.timeline);
     }
-
     const tips = JSON.stringify(ch.timeline.get_tips());
 
     let cmd;
@@ -198,6 +231,8 @@ function sendPollResults() {
         const recps = ch.members.join(' ');
         cmd = `priv:post ${tips} ${encodedText} null ${recps}`;
     }
+
+    closedPolls[currentPollId] = "sent";
 
     backend(cmd);
     closeResultsModal();

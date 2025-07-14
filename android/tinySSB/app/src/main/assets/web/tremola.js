@@ -677,6 +677,15 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
                     "key": e.header.ref, "from": e.header.fid, "body": a[2],
                     "voice": a[3], "when": a[4] * 1000, "prev": a[1]
                 };
+                if (p.body && p.body.startsWith("[poll_closed:")) {
+                    const match = p.body.match(/^\[poll_closed:([^\]]+)\]/);
+                    if (match) {
+                        const pollId = match[1];
+                        closedPolls[pollId] = true;
+                        console.log("Poll marked as closed from public post:", pollId);
+                    }
+                }
+                p.body = p.body.replace(/^\[poll_closed:[^\]]+\]\n?/, "");
                 // console.log("new post 2 ", JSON.stringify(p))
                 // console.log("time: ", a[3])
                 ch["posts"][e.header.ref] = p;
@@ -802,6 +811,15 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
                         "key": e.header.ref, "from": e.header.fid, "body": a[2],
                         "voice": a[3], "when": a[4] * 1000, "prev": a[1], "status":""
                     };
+                    if (p.body && p.body.startsWith("[poll_closed:")) {
+                        const match = p.body.match(/^\[poll_closed:([^\]]+)\]/);
+                        if (match) {
+                            const pollId = match[1];
+                            closedPolls[pollId] = true;
+                            console.log("✅ Poll marked as closed from private post:", pollId);
+                        }
+                    }
+                    p.body = p.body.replace(/^\[poll_closed:[^\]]+\]\n?/, "");
                     // console.log("new priv post 2 ", p)
                     // console.log("time: ", a[3])
                     ch["posts"][e.header.ref] = p;
