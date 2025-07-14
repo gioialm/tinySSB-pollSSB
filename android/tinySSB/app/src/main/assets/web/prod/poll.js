@@ -176,6 +176,9 @@ function openResultsModal(pollId, pollText) {
     document.getElementById("resultsModal").style.display = "block";
 }
 
+/**
+* Send poll results to peers as a text message.
+*/
 function sendPollResults() {
     if (!currentResultMessage) {
         launch_snackbar("Nothing to send");
@@ -205,14 +208,15 @@ function sendPollResults() {
 }
 
 /**
-    sends a tally request to the backend.
+*   Send a tally request to the backend.
 */
 function requestVoteTallying() {
         backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
         launch_snackbar("Update requested");
 }
 
-/** called from the backend to
+/**
+* Called from the backend to update the poll results
 */
 function b2f_showPollTally(pollId, countsArray) {
     console.log("Received poll results for", pollId, countsArray);

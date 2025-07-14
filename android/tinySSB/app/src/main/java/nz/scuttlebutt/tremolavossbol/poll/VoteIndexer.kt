@@ -19,6 +19,7 @@ data class VoteReference(val pollId: String, val fid: ByteArray, val seq: Int)
 /**
  * VoteIndexer is responsible for asynchronously writing vote references
  * (pollId, fid, seq) into files under context.filesDir/poll_index/{pollId}/{fid}.json
+ * Each peer has its index. This index speeds up tallying votes when being the creator of a poll.
  */
 class VoteIndexer(private val context: Context) {
     private val POLL_PATH = "poll_index/"
@@ -27,6 +28,9 @@ class VoteIndexer(private val context: Context) {
     private val isRunning = AtomicBoolean(false)
     private var indexerJob: Job? = null
 
+    /**
+     * start the indexer thread
+     */
     fun start() {
         if (isRunning.get()) return
         isRunning.set(true)
@@ -34,6 +38,10 @@ class VoteIndexer(private val context: Context) {
             runIndexerLoop()
         }
     }
+
+    /**
+     * stop the indexer thread
+     */
 
     fun stop() {
         isRunning.set(false)
@@ -93,6 +101,10 @@ class VoteIndexer(private val context: Context) {
         }
     }
 
+    /**
+     * Enqueued items will be asynchronously written to the poll index
+     * @param reference The reference to the vote that should be persistently indexed
+     */
     fun enqueue(reference: VoteReference) {
         Log.d(
             "VoteIndexer",
@@ -100,6 +112,10 @@ class VoteIndexer(private val context: Context) {
         )
         queue.add(reference)
     }
+
+    /**
+     * Should be called on content wipe. Destroys the index.
+     */
 
     fun clearIndex() {
         try {

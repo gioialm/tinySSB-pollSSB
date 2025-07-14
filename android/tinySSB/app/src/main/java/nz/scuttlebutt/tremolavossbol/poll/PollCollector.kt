@@ -52,7 +52,7 @@ class PollCollector(
             }
 
             if (seqs.isEmpty()) continue
-            val seq = seqs.first()
+            val seq = seqs.first() //for now only consider first vote given
 
             val pkt = repo.feed_read_content(fid, seq) ?: continue
             val bodyBytes = Bipf.decode(pkt)
@@ -78,7 +78,6 @@ class PollCollector(
         return collected
     }
 
-    //TODO ZKP proving correct tally
     /**
      * Tallies the number of votes per option for a given poll.
      *

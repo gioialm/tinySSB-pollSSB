@@ -4,17 +4,16 @@ import android.util.Log
 import nz.scuttlebutt.tremolavossbol.utils.Bipf
 import java.util.UUID
 
-//TODO, this is only a skeleton not a finished implementation. No usages yet.
 /**
  * PollProtocol contains functions for encoding, decoding and storing of polls
- * and votes in TinySSB using the bipf.
+ * and votes in TinySSB using BIPF.
  */
 object PollCodec {
 
     // tags for poll related messages
     val TINYSSB_APP_POLL = Bipf.mkString("POL")       // New Poll
     val TINYSSB_APP_POLL_VOTE = Bipf.mkString("POV")  // Vote
-    val TINYSSB_APP_POLL_RESULT = Bipf.mkString("POR")// (Optional) Poll result with ZKP
+    val TINYSSB_APP_POLL_RESULT = Bipf.mkString("POR")// (Optional) Poll result
 
     /**
      * Data class, which describes a poll
