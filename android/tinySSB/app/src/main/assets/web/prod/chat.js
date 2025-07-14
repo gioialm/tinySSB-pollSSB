@@ -209,7 +209,7 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
 
             txt += `
                 <div style="margin-top: 10px; display: flex; gap: 10px;">
-                    <button id="${voteBtnId}" onclick="openVoteModal('${p.key}', \`${pollText}\`, '${p.from}')">
+                    <button id="${voteBtnId}" onclick="open_poll_voter('${p.key}', \`${pollText}\`, '${p.from}')">
                         🗳️ Vote
                     </button>
             `;

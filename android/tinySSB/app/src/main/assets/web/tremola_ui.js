@@ -307,6 +307,7 @@ function closeOverlay() {
     document.getElementById('old_contact-overlay').style.display = 'none';
     document.getElementById('attach-menu').style.display = 'none';
     document.getElementById('poll-creator-menu').style.display = 'none';
+    document.getElementById('poll-voter-menu').style.display = 'none';
     document.getElementById('div:modal_img').style.display = 'none';
     document.getElementById('connection-overlay').style.display = 'none';
     document.getElementById('import-id-overlay').style.display = 'none';
