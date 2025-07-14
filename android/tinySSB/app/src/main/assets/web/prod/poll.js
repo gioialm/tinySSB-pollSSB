@@ -214,30 +214,54 @@ function requestVoteTallying() {
 
 /** called from the backend to
 */
-
 function b2f_showPollTally(pollId, countsArray) {
     console.log("Received poll results for", pollId, countsArray);
+
     if (!Array.isArray(countsArray) || countsArray.length !== optionsInCurrentPoll.length) {
-            launch_snackbar("Mismatch in poll results");
-            return;
+        launch_snackbar("Mismatch in poll results");
+        return;
     }
 
     const question = document.getElementById("voteQuestion").innerText;
-        const resultsHtml = optionsInCurrentPoll.map((option, index) => {
-            const votes = countsArray[index] || 0;
-            const icon = votes > 0 ? "✅" : "❌";
-            return `<p>${icon} <b>${option}</b> — ${votes} vote${votes !== 1 ? 's' : ''}</p>`;
-        }).join("");
 
-        const textSummary = `Results for: ${question}\n` +
-            optionsInCurrentPoll.map((opt, idx) => `${opt}: ${countsArray[idx]} vote${countsArray[idx] !== 1 ? 's' : ''}`).join("\n");
+    // Determine the highest vote count
+    const maxVotes = Math.max(...countsArray);
 
-        currentResultMessage = textSummary;
+    // Total number of votes
+    const totalVotes = countsArray.reduce((sum, count) => sum + count, 0);
 
-        document.getElementById("resultsTitle").innerText = question;
-        document.getElementById("resultsBody").innerHTML = resultsHtml;
-        document.getElementById("resultsModal").style.display = "block";
+    // Estimate expected voters
+    let expectedVoters = 0;
+    const ch = tremola.chats[curr_chat];
+    if (ch && ch.members && Array.isArray(ch.members)) {
+        expectedVoters = ch.members.length;
+    }
 
+    // Build "X of Y voted" line
+    const participationText = expectedVoters > 0
+        ? `<p style="margin-bottom: 10px; font-style: italic;">${totalVotes} of ${expectedVoters} voted</p>`
+        : `<p style="margin-bottom: 10px; font-style: italic;">${totalVotes} votes submitted</p>`;
+
+    // Build result entries
+    const resultsHtml = optionsInCurrentPoll.map((option, index) => {
+        const votes = countsArray[index] || 0;
+        const isWinner = votes === maxVotes && maxVotes > 0;
+
+        const style = isWinner
+            ? "background-color: #d4edda; padding: 5px; border-radius: 5px;"  // light green
+            : "";
+
+        return `<p style="${style}"><b>${option}</b> — ${votes} vote${votes !== 1 ? 's' : ''}</p>`;
+    }).join("");
+
+    const textSummary = `Results for: ${question}\n` +
+        optionsInCurrentPoll.map((opt, idx) => `${opt}: ${countsArray[idx]} vote${countsArray[idx] !== 1 ? 's' : ''}`).join("\n");
+
+    currentResultMessage = textSummary;
+
+    document.getElementById("resultsTitle").innerText = question;
+    document.getElementById("resultsBody").innerHTML = participationText + resultsHtml;
+    document.getElementById("resultsModal").style.display = "block";
 }
 
 function closeResultsModal() {
