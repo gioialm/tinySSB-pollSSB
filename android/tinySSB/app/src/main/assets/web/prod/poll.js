@@ -66,6 +66,13 @@ function submit_poll_creator() {
         return;
     }
 
+    const lowercaseOptions = options.map(opt => opt.toLowerCase());
+    const uniqueOptions = new Set(lowercaseOptions);
+    if (uniqueOptions.size !== lowercaseOptions.length) {
+        launch_snackbar("Options must be unique.");
+        return;
+    }
+
     const pollData = {
         type: "poll:create",
         question: question,
