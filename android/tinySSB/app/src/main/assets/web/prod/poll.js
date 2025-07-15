@@ -92,61 +92,74 @@ function submit_poll_creator() {
     launch_snackbar("Poll created successfully");
 }
 
-function openVoteModal(pollId, pollText, creatorID) {
+/**
+ * open_poll_voter(pollId, pollText, creatorID)
+ *
+ * Renders the poll voting overlay with the question and available options.
+ * Options are parsed from the chat message content. Displays all selectable options and a cancel
+ * and submit button. If poll is already closed it opens the results.
+ *
+ * @param {string} pollId - Unique key of the poll message.
+ * @param {string} pollText - The full poll message body (HTML with <br> lines).
+ * @param {string} creatorID - Unique key of the creator of the poll.
+ */
+function open_poll_voter(pollId, pollText, creatorID) {
     console.log("Poll: Opening vote modal for poll:", pollId, "creator:", creatorID);
     currentPollId = pollId;
     currentPollCreator = creatorID;
     selectedOption = null;
 
-    const lines = pollText.split("<br>\n");
-    const question = lines[0].replace("📊 Poll: ", "").trim();
-    optionsInCurrentPoll = lines.slice(1).map(line => line.replace("[ ]", "").trim());
+    const overlay = document.getElementById('poll-voter-menu');
+    const overlayBg = document.getElementById("overlay-bg");
+    if (!overlay || !overlayBg) return;
 
-    const voteModal = document.getElementById("voteModal");
-    voteModal.style.display = "block";
-
-    // Set the question
-    document.getElementById("voteQuestion").innerText = question;
-
-    const optContainer = document.getElementById("voteOptions");
-    optContainer.innerHTML = "";
+    const { question, options } = parse_poll_text(pollText);
+    optionsInCurrentPoll = options;
 
     const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
     const isClosed = sentResults[pollId];
 
     if (isClosed) {
-        // 🛑 Poll is closed — show only message and cancel button
-        const info = document.createElement("p");
-        info.innerText = "🛑 This poll is closed. The results have been published.";
-        info.style.color = "gray";
-        info.style.marginTop = "10px";
-        optContainer.appendChild(info);
-
-        // Hide submit button
-        voteModal.querySelector("button[onclick='submitVote()']").style.display = "none";
+        openResultsModal(pollId, pollText);
+        return;
     } else {
-        // ✅ Poll is open — show options and submit/cancel
-        optionsInCurrentPoll.forEach(opt => {
-            const id = "opt-" + opt.replace(/\s/g, "_");
-            optContainer.innerHTML += `
-                <div style="margin: 5px 0;">
-                    <input type="radio" id="${id}" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
-                    <label for="${id}" style="margin-left: 5px;">${opt}</label>
-                </div>`;
-        });
+        let html = `
+            <div id="poll-voter-menu" style="text-align:center">
+                <h3>${escapeHTML(question)}</h3>
+                <div id="poll-voter-options" style="background:white; margin-top: 15px; text-align: left; display: inline-block;">
+                    ${options.map((opt, i) => `
+                        <div style="margin: 5px 0;">
+                            <input type="radio" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
+                            <label for="opt-${opt.replace(/\s/g, "_")}" style="margin-left: 5px;">${escapeHTML(opt)}</label>
+                        </div>
+                    `).join("")}
+                </div>
+                <div style="margin-top: 20px;">
+                <button class="passive buttontext" onclick="submit_poll_voter('${pollId}')"
+                    style="background-image: url('img/checked.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+                <button class="passive buttontext" onclick="closeOverlay()"
+                    style="background-image: url('img/cancel.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+                </div>
+            </div>
+        `
 
-        // Show submit button
-        voteModal.querySelector("button[onclick='submitVote()']").style.display = "inline-block";
+        overlay.innerHTML = html;
+        overlay.style.display = 'block';
+        requestAnimationFrame(() => overlay.classList.add('show'));
+        overlayBg.style.display = 'initial';
+        overlayBg.onclick = () => closeOverlay();
+        overlayIsActive = true;
     }
 }
 
-
-function closeVoteModal() {
-    document.getElementById("voteModal").style.display = "none";
-}
-
-function submitVote() {
-    console.log("Poll: In submitVote, PollID:", currentPollId, "creator:", currentPollCreator);
+/**
+ * submit_poll_voter()
+ *
+ * Checks if a valid selection on a valid poll is made. Prevents double-vote and then sends the
+ * vote to the backend.
+ */
+function submit_poll_voter() {
+    console.log("Poll: In submit_poll_voter, PollID:", currentPollId, "creator:", currentPollCreator);
 
     if (selectedOption === null) {
         launch_snackbar("Please select an option");
@@ -172,19 +185,14 @@ function submitVote() {
     const voteArray = optionsInCurrentPoll.map(opt => opt === selectedOption ? 1 : 0);
     const bipfVotePayload = ["POV", currentPollId, voteArray];
     const encodedPayload = btoa(JSON.stringify(bipfVotePayload));
+    const command = build_vote_command(encodedPayload);
 
-    const ch = tremola.chats[curr_chat];
-    if (!(ch.timeline instanceof Timeline)) {
-        ch.timeline = Timeline.fromJSON(ch.timeline);
-    }
-    const tips = JSON.stringify(ch.timeline.get_tips());
+    backend(command);
+    console.log("Poll: Sent command to backend:", command);
 
-    const cmd = `poll:vote ${tips} ${encodedPayload} null ${currentPollCreator}`;
-    backend(cmd);
-    console.log("Poll: Sent cmd to backend:", cmd);
-
-    closeVoteModal();
-    launch_snackbar("Your vote has been sent.");
+    closeOverlay();
+    overlayIsActive = false;
+    selectedOption = null;
 }
 
 function openResultsModal(pollId, pollText) {
@@ -464,4 +472,40 @@ function build_poll_command(encodedPayload) {
         const recps = ch.members.join(" ");
     return `priv:poll ${tips} ${encodedPayload} null ${recps}`;
     }
+}
+
+/**
+ * build_vote_command(encodedPayload)
+ *
+ * Constructs the appropriate backend command for sending a vote.
+ *
+ * @param {string} encodedPayload - The base64-encoded vote data.
+ * @returns {string} - The backend command string to send the vote.
+ */
+function build_vote_command(encodedPayload) {
+    const ch = tremola.chats[curr_chat];
+    if (!(ch.timeline instanceof Timeline)) {
+        ch.timeline = Timeline.fromJSON(ch.timeline);
+    }
+    const tips = JSON.stringify(ch.timeline.get_tips());
+
+    return `poll:vote ${tips} ${encodedPayload} null ${currentPollCreator}`;
+}
+
+/**
+ * parse_poll_text(text)
+ *
+ * Extracts the poll question and option strings from formatted poll message text.
+ *
+ * @param {string} text - The full poll text (HTML line-separated with <br>).
+ * @returns {{ question: string, options: string[] }} Parsed question and options.
+ */
+function parse_poll_text(text) {
+    const lines = text.split("<br>\n");
+    const question = lines[0].replace("📊 Poll: ", "").trim();
+    const options = lines
+        .slice(1)
+        .map(line => line.replace("[ ]", "").trim())
+        .filter(opt => opt.length > 0);
+    return { question, options };
 }
