@@ -66,6 +66,18 @@ function submit_poll_creator() {
         return;
     }
 
+    if (options.length < MIN_OPTIONS) {
+        launch_snackbar("Please enter at least " + MIN_OPTIONS + " options.");
+        return;
+    }
+
+    const lowercaseOptions = options.map(opt => opt.toLowerCase());
+    const uniqueOptions = new Set(lowercaseOptions);
+    if (uniqueOptions.size !== lowercaseOptions.length) {
+        launch_snackbar("Options must be unique.");
+        return;
+    }
+
     const pollData = {
         type: "poll:create",
         question: question,
