@@ -61,13 +61,10 @@ function submit_poll_creator() {
     const question = document.getElementById('poll-question')?.value;
     const options = get_current_poll_options();
 
-    if (!is_poll_filled(question, options)) {
-        launch_snackbar("Please fill in all fields.");
-        return;
-    }
-
-    if (options.length < MIN_OPTIONS) {
-        launch_snackbar("Please enter at least " + MIN_OPTIONS + " options.");
+    const optionsFields = Array.from(document.querySelectorAll('#poll-options-container input[type="text"]'))
+        .map(input => input.value);
+    if (!is_poll_uniquely_filled(question, optionsFields)) {
+        launch_snackbar("Please fill in all fields uniquely.");
         return;
     }
 
@@ -393,7 +390,7 @@ function get_current_poll_option_count() {
 /**
  * get_current_poll_options()
  *
- * Collects and returns all non-empty poll option values from the UI.
+ * Collects and returns all non-empty poll option values from the DOM.
  *
  * @returns {string[]} Array of poll option texts entered by the user.
  */
@@ -405,18 +402,28 @@ function get_current_poll_options() {
 }
 
 /**
- * is_poll_filled(question, options)
+ * is_poll_uniquely_filled(question, options)
  *
- * Validates that the poll question is non-empty and all options are filled and that no option is
- * only whitespace.
+ * Validates that the poll question is non-empty, all options are filled and unique and that no
+ * option is only whitespace. Options are normalized in lowercase without whitespaces.
  *
  * @param {string} question - The poll question to validate.
- * @param {string[]} options - The list of poll options to validate.
+ * @param {string[]} options - The list of poll options to validate gathered from the DOM.
  * @returns {boolean} - True if the question and all options are properly filled, false otherwise.
  */
-function is_poll_filled(question, options) {
-    if (!question || !Array.isArray(options)) return false;
-    return options.every(opt => typeof opt === 'string' && opt.trim().length > 0);
+function is_poll_uniquely_filled(question, options) {
+    if (typeof question !== 'string' || question.trim().length === 0) return false;
+    if (!Array.isArray(options) || options.length === 0) return false;
+
+    const normalizedOptions = options.map(opt => {
+        if (typeof opt !== 'string' || opt.trim().length === 0) return null;
+        return opt.trim().toLowerCase();
+    });
+
+    if (normalizedOptions.includes(null)) return false;
+
+    const uniqueOptions = new Set(normalizedOptions);
+    return uniqueOptions.size === normalizedOptions.length;
 }
 
 /**
