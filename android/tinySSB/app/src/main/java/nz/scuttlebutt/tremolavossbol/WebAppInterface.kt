@@ -258,6 +258,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 else null
 
                 // strip location prefix if any (like "pfx:loc/plus,...|")
+                val loc = rawJson?.substringBefore("|") + "|"
                 val jsonStr = rawJson?.substringAfter("|", rawJson)
 
                 try {
@@ -274,7 +275,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
 
                     if (poll != null) {
                         Log.d("Poll", "calling public_post_poll with tips=$tips, poll=$poll")
-                        public_post_poll(tips, poll)
+                        public_post_poll(tips, loc!!, poll)
                     } else {
                         Log.w("Poll", "poll was null after parsing")
                     }
@@ -313,6 +314,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 else null
 
                 // strip location prefix like: pfx:loc/plus,...|
+                val loc = rawJson?.substringBefore("|") + "|"
                 val jsonStr = rawJson?.substringAfter("|", rawJson)
 
                 // extract recipients
@@ -334,7 +336,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                     // post poll
                     if (poll != null) {
                         Log.d("Poll", "calling private_post_poll with tips=$tips, poll=$poll, recps=$rcps")
-                        private_post_poll(tips, poll, rcps)
+                        private_post_poll(tips, loc!!, poll, rcps)
                     } else {
                         Log.w("Poll", "poll was null after parsing")
                     }
@@ -691,7 +693,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
             act.tinyNode.publish_public_content(body)
     }
 
-    fun public_post_poll(tips: List<String>, poll: PollCodec.Poll) {
+    fun public_post_poll(tips: List<String>, loc: String, poll: PollCodec.Poll) {
         Log.d("Poll", "Public poll - Tips: $tips")
         Log.d("Poll", "Public poll - Poll: $poll")
 
@@ -706,8 +708,9 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
         }
         Bipf.list_append(lst, tip_lst)
 
+        var textBody = loc
         // Add plain-text poll body (so it shows in chat UI)
-        val textBody = buildString {
+        textBody += buildString {
             append("📊 Poll: ${poll.question}")
             for ((index, opt) in poll.options.withIndex()) {
                 append("\n  [ ] ${opt}")
@@ -926,7 +929,7 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
             act.tinyNode.publish_public_content(body_encr)
     }
 
-    fun private_post_poll(tips: List<String>, poll: PollCodec.Poll, rcps: List<String>) {
+    fun private_post_poll(tips: List<String>, loc: String, poll: PollCodec.Poll, rcps: List<String>) {
         Log.d("Poll", "Tips: $tips")
         Log.d("Poll", "Poll: $poll")
         Log.d("Poll", "Recipients: $rcps")
@@ -940,8 +943,9 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
             Bipf.list_append(tip_lst, Bipf.mkString(t))
         }
         Bipf.list_append(lst, tip_lst)
+        var textBody = loc
         // adds plain-text body
-        val textBody = buildString {
+        textBody += buildString {
             append("📊 Poll: ${poll.question}")
             for ((index, opt) in poll.options.withIndex()) {
                 append("\n  [ ] ${opt}")
