@@ -258,7 +258,9 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 else null
 
                 // strip location prefix if any (like "pfx:loc/plus,...|")
-                val loc = rawJson?.substringBefore("|") + "|"
+                val loc = rawJson?.substringBefore("|")?.let {
+                    if (it.startsWith("pfx:loc/plus")) "$it|" else ""
+                } ?: ""
                 val jsonStr = rawJson?.substringAfter("|", rawJson)
 
                 try {
@@ -314,7 +316,9 @@ class WebAppInterface(val act: MainActivity, val webView: WebView) {
                 else null
 
                 // strip location prefix like: pfx:loc/plus,...|
-                val loc = rawJson?.substringBefore("|") + "|"
+                val loc = rawJson?.substringBefore("|")?.let {
+                    if (it.startsWith("pfx:loc/plus")) "$it|" else ""
+                } ?: ""
                 val jsonStr = rawJson?.substringAfter("|", rawJson)
 
                 // extract recipients
