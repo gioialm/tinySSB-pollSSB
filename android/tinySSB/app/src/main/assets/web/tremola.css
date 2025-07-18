@@ -320,13 +320,24 @@
 }
 
 .attach-menu-item-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
   border: none;
   text-align: left;
-  vertical-align: top;
   height: 3em;
   width: 100%;
   font-size: medium;
   background-color: var(--menuBackground);
+  padding: 0 0.75em;
+  cursor: pointer;
+}
+
+.attach-menu-item-button img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .attach-menu {
