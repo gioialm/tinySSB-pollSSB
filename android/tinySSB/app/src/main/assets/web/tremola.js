@@ -681,19 +681,18 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
                     const match = p.body.match(/^\[poll_closed:([^\]]+)\]/);
                     if (match) {
                         const pollId = match[1];
-
-                        // ✅ Load existing closed polls from localStorage
+                        // Load existing closed polls from localStorage
                         const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
 
-                        // ✅ Persistently mark this poll as closed
+                        // Persistently mark this poll as closed
                         sentResults[pollId] = true;
                         localStorage.setItem("sentResults", JSON.stringify(sentResults));
 
-                        console.log("✅ Persistently marked poll as closed:", pollId);
+                        console.log("Persistently marked poll as closed:", pollId);
                     }
                 }
 
-                // ✅ Remove the marker from the visible message body
+                // Remove the marker from the visible message body
                 p.body = p.body.replace(/^\[poll_closed:[^\]]+\]\n?/, "");
 
                 // console.log("new post 2 ", JSON.stringify(p))
@@ -826,18 +825,18 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
                     if (match) {
                         const pollId = match[1];
 
-                        // ✅ Load existing closed polls from localStorage
+                        // Load existing closed polls from localStorage
                         const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
 
-                        // ✅ Persistently mark this poll as closed
+                        // Persistently mark this poll as closed
                         sentResults[pollId] = true;
                         localStorage.setItem("sentResults", JSON.stringify(sentResults));
 
-                        console.log("✅ Persistently marked poll as closed:", pollId);
+                        console.log("Persistently marked poll as closed:", pollId);
                     }
                 }
 
-                // ✅ Remove the marker from the visible message body
+                // Remove the marker from the visible message body
                 p.body = p.body.replace(/^\[poll_closed:[^\]]+\]\n?/, "");
 
                     // console.log("new priv post 2 ", p)

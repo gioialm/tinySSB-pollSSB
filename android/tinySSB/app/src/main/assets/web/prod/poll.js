@@ -1,3 +1,5 @@
+// --- Global Variables ---
+let currentQuestion = null;
 let currentPollId = null;
 let selectedOption = null;
 let currentPollCreator = null;
@@ -9,14 +11,16 @@ let pollOptionCounter = 0; // tracks how many polls have ever been added, for un
 let pollOptionsMap = {};
 let closedPolls = {}; // key = pollId, value = true if closed
 
+// --- Poll Creator ---
 /**
  * open_poll_creator()
  *
- * Opens a poll creation overlay on the screen if not already open. The new poll has a question
- * and the minimum amount of options by default. Allows the user to add and remove options in the
- * boundaries and provides submit and cancel buttons.
+ * Closes all overlays and opens a poll-creation-menu on the screen. Contains fields for question
+ * and adds the minimum amount of options (MIN_OPTIONS) by default aswell as "add option",
+ * "accept" and "decline" buttons. For each option there is a button to remove the it.
  */
 function open_poll_creator() {
+    closeOverlay();
     const overlay = document.getElementById('poll-creator-menu');
     const overlayBg = document.getElementById('overlay-bg')
     if (!overlay || !overlayBg) return;
@@ -24,16 +28,16 @@ function open_poll_creator() {
     pollOptionCounter = 0;
 
     overlay.innerHTML = `
-    <div style="text-align: center;">
+    <div id="poll-creator-menu" style="text-align: center;">
         <h3>Create a New Poll</h3>
-        <input type="text" id="poll-question" placeholder="Question" style="width: 90%; margin: 10px 0;"><br>
+        <input type="text" id="poll-question" placeholder="Question" style="width: 91%; margin: 10px 0;"><br>
 
         <div id="poll-options-container"></div>
                 <button onclick="add_poll_option()" style="margin: 10px;">➕ Add Option</button>
 
-        <div style="margin-top: 20px;">
-            <button class="passive buttontext" onclick="submit_poll_creator()" style="background-image: url('img/checked.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
-            <button class="passive buttontext" onclick="closeOverlay()" style="background-image: url('img/cancel.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+        <div style="margin-top: 10px;">
+            <button class="passive buttontext" onclick="submit_poll_creator()" style="background-image: url('img/accept.svg'); background-size: 90%; background-position: center; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
+            <button class="passive buttontext" onclick="closeOverlay()" style="margin-left: 10px; background-image: url('img/decline.svg'); background-size: 90%; background-position: center; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
         </div>
     </div>
     `;
@@ -53,25 +57,16 @@ function open_poll_creator() {
  * submit_poll_creator()
  *
  * Gathers the question and poll options from the input fields, validates them, and sends the poll
- * data to the backend. Requires the options and the question fields to be filled. Adds
- * location metadata if available. Encodes the data and sends command to backend on whether
- * the chat is public or private. Closes the overlay and shows a confirmation snackbar on success.
+ * data to the backend. Requires the displayed options and the question fields to be filled. Each
+ * option are normalized (lowercase and leading whitespaces removed) and must be unique.
+ * Sends encoded data to backend and closes all overlays.
  */
 function submit_poll_creator() {
     const question = document.getElementById('poll-question')?.value;
     const options = get_current_poll_options();
 
-    const optionsFields = Array.from(document.querySelectorAll('#poll-options-container input[type="text"]'))
-        .map(input => input.value);
-    if (!is_poll_uniquely_filled(question, optionsFields)) {
+    if (!is_poll_uniquely_filled(question, options)) {
         launch_snackbar("Please fill in all fields uniquely.");
-        return;
-    }
-
-    const lowercaseOptions = options.map(opt => opt.toLowerCase());
-    const uniqueOptions = new Set(lowercaseOptions);
-    if (uniqueOptions.size !== lowercaseOptions.length) {
-        launch_snackbar("Options must be unique.");
         return;
     }
 
@@ -86,30 +81,29 @@ function submit_poll_creator() {
 
     backend(command);
     closeOverlay();
-    launch_snackbar("Poll created successfully");
 }
 
+// --- Poll Voter ---
 /**
  * open_poll_voter(pollId, pollText, creatorID)
  *
  * Renders the poll voting overlay with the question and available options.
- * Options are parsed from the chat message content. Displays all selectable options and a cancel
- * and submit button. If poll is already closed it opens the results.
+ * Options are parsed from the chat message content. Displays all selectable options and a decline
+ * and accept button. If poll is already closed it opens the results.
  *
  * @param {string} pollId - Unique key of the poll message.
  * @param {string} pollText - The full poll message body (HTML with <br> lines).
  * @param {string} creatorID - Unique key of the creator of the poll.
  */
 function open_poll_voter(pollId, pollText, creatorID) {
-    console.log("Poll: Opening vote modal for poll:", pollId, "creator:", creatorID);
-    currentPollId = pollId;
-    currentPollCreator = creatorID;
-    selectedOption = null;
-
+    closeOverlay();
     const overlay = document.getElementById('poll-voter-menu');
     const overlayBg = document.getElementById("overlay-bg");
     if (!overlay || !overlayBg) return;
 
+    currentPollId = pollId;
+    currentPollCreator = creatorID;
+    selectedOption = null;
     const { question, options } = parse_poll_text(pollText);
     optionsInCurrentPoll = options;
 
@@ -117,25 +111,25 @@ function open_poll_voter(pollId, pollText, creatorID) {
     const isClosed = sentResults[pollId];
 
     if (isClosed) {
-        openResultsModal(pollId, pollText);
+        open_poll_result(pollId, pollText);
         return;
     } else {
         let html = `
             <div id="poll-voter-menu" style="text-align:center">
                 <h3>${escapeHTML(question)}</h3>
-                <div id="poll-voter-options" style="background:white; margin-top: 15px; text-align: left; display: inline-block;">
+                <div id="poll-voter-options" style="background:white; text-align: left; display: inline-block;">
                     ${options.map((opt, i) => `
-                        <div style="margin: 5px 0;">
+                        <div style="padding: 2px">
                             <input type="radio" name="pollOption" value="${opt}" onchange="selectedOption = this.value;">
-                            <label for="opt-${opt.replace(/\s/g, "_")}" style="margin-left: 5px;">${escapeHTML(opt)}</label>
+                            <label for="opt-${opt.replace(/\s/g, "_")}" style="margin-left: 10px;">${escapeHTML(opt)}</label>
                         </div>
                     `).join("")}
                 </div>
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 15px;">
                 <button class="passive buttontext" onclick="submit_poll_voter('${pollId}')"
-                    style="background-image: url('img/checked.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+                    style="background-image: url('img/accept.svg'); background-position: center; background-size: 90%; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
                 <button class="passive buttontext" onclick="closeOverlay()"
-                    style="background-image: url('img/cancel.svg'); background-repeat: no-repeat; width: 35px; height: 35px;"></button>
+                    style="background-image: url('img/decline.svg'); margin-left: 10px; background-position: center; background-size: 90%;background-repeat: no-repeat; width: 40px; height: 40px;"></button>
                 </div>
             </div>
         `
@@ -156,8 +150,6 @@ function open_poll_voter(pollId, pollText, creatorID) {
  * vote to the backend.
  */
 function submit_poll_voter() {
-    console.log("Poll: In submit_poll_voter, PollID:", currentPollId, "creator:", currentPollCreator);
-
     if (selectedOption === null) {
         launch_snackbar("Please select an option");
         return;
@@ -168,7 +160,6 @@ function submit_poll_voter() {
         return;
     }
 
-    // Use localStorage for persistent double-vote prevention
     const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
     const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
     if (votedPolls[currentPollId]) {
@@ -178,6 +169,8 @@ function submit_poll_voter() {
 
     votedPolls[currentPollId] = true;
     localStorage.setItem("votedPolls", JSON.stringify(votedPolls));
+    localStorage.setItem(`pollVote:${currentPollId}`, selectedOption);
+    console.log("Vote recorded for", currentPollId);
 
     const voteArray = optionsInCurrentPoll.map(opt => opt === selectedOption ? 1 : 0);
     const bipfVotePayload = ["POV", currentPollId, voteArray];
@@ -186,48 +179,110 @@ function submit_poll_voter() {
 
     backend(command);
     console.log("Poll: Sent command to backend:", command);
+    updatePollSubtitle(currentPollId);
 
     closeOverlay();
     overlayIsActive = false;
     selectedOption = null;
 }
 
-function openResultsModal(pollId, pollText) {
-    console.log("Opening results for poll:", pollId);
+function open_poll_viewer(pollId, pollText, creatorId) {
+    closeOverlay();
+    const overlay = document.getElementById('poll-viewer-menu');
+    const overlayBg = document.getElementById("overlay-bg");
+    if (!overlay || !overlayBg) return;
 
     currentPollId = pollId;
+    currentPollCreator = creatorId;
+    const { question, options } = parse_poll_text(pollText);
+    optionsInCurrentPoll = options;
+    currentQuestion = question;
 
-    if (!pollText) {
-        launch_snackbar("Poll metadata missing");
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    const userVoted = votedPolls[pollId];
+
+    const userSelection = localStorage.getItem(`pollVote:${pollId}`);
+    if (!userSelection && !userVoted) {
+        launch_snackbar("You have not voted on this poll.");
         return;
     }
 
-    const lines = pollText.split("<br>\n");
-    const question = lines[0].replace("📊 Poll: ", "").trim();
-    optionsInCurrentPoll = lines.slice(1).map(line => line.replace("[ ]", "").trim());
+    let html = `
+        <div id="poll-viewer-menu" style="text-align:center">
+            <h3>${escapeHTML(question)}</h3>
+            <div style="background:white; text-align: left; display: inline-block;">
+                ${options.map(opt => {
+                    const isSelected = (opt === userSelection);
+                    return `<p style="${isSelected ? 'font-weight: bold; color: green;' : 'color: gray;'}">
+                            ${escapeHTML(opt)} ${isSelected ? '✔' : ''}
+                        </p>`;
+                }).join("")}
+            </div>
+            <div style="margin-top: 10px;">
+                ${myId === creatorId ? `
+                    <button class="passive buttontext" onclick="open_poll_closer('${pollId}')"
+                        style="margin-right: 10px; background-image: url('img/result.svg'); background-position: center; background-repeat: no-repeat; background-size: 85%; width: 40px; height: 40px;"></button>
+                ` : ''}
+                <button class="passive buttontext" onclick="closeOverlay()"
+                    style="background-image: url('img/decline.svg'); background-position: center; background-size: 90%; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
+            </div>
+        </div>
+    `;
 
-    document.getElementById("resultsTitle").innerText = question;
-    document.getElementById("resultsBody").innerHTML = `<p style="color: gray;">Please wait while votes are being counted...</p>`;
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    overlayBg.style.display = 'initial';
+    overlayBg.onclick = () => closeOverlay();
+    overlayIsActive = true;
 
-    // start tally
     backend(`poll:tally ${pollId} ${optionsInCurrentPoll.length}`);
-
-    document.getElementById("resultsModal").style.display = "block";
 }
 
-/**
-* Send poll results to peers as a text message.
-*/
-function sendPollResults() {
+function open_poll_closer(pollId) {
+    closeOverlay();
+    const overlay = document.getElementById('poll-end-menu');
+    const overlayBg = document.getElementById("overlay-bg");
+    if (!overlay || !overlayBg) return;
+
+    currentPollId = pollId;
+
+    let html = `
+        <div id="poll-closer-menu" style="text-align:center">
+            <h3>${escapeHTML(currentQuestion)}</h3>
+            <div id="poll-closer-stats" style="background:white; text-align: left; display: inline-block;">
+                <p style="color: gray;">Please wait while votes are being counted...</p>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="passive buttontext" onclick="request_vote_tallying();"
+                    style="background-image: url('img/update.svg'); background-position: center; background-repeat: no-repeat; background-size: 90%; width: 40px; height: 40px;"></button>
+                <button class="passive buttontext" onclick="submit_poll_closer()"
+                    style="margin-left: 10px; background-image: url('img/accept.svg'); background-position: center; background-repeat: no-repeat; background-size: 90%; width: 40px; height: 40px;"></button>
+                <button class="passive buttontext" onclick="closeOverlay()"
+                    style="margin-left: 10px; background-image: url('img/decline.svg'); background-position: center; background-repeat: no-repeat; background-size: 90%; width: 40px; height: 40px;"></button>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    overlayBg.style.display = 'initial';
+    overlayBg.onclick = () => closeOverlay();
+    overlayIsActive = true;
+
+    backend(`poll:tally ${pollId} ${optionsInCurrentPoll.length}`);
+}
+
+function submit_poll_closer() {
     if (!currentPollId) {
         launch_snackbar("Invalid poll context");
         return;
     }
 
-    // ✅ Prevent re-sending if already sent (persistent via localStorage)
     const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
     if (sentResults[currentPollId]) {
-        launch_snackbar("You already published these results.");
+        launch_snackbar("Poll already closed.");
         return;
     }
 
@@ -256,37 +311,73 @@ function sendPollResults() {
     sentResults[currentPollId] = true;
     localStorage.setItem("sentResults", JSON.stringify(sentResults));
 
+    updatePollSubtitle(currentPollId);
+
     backend(cmd);
-    closeResultsModal();
-    launch_snackbar("Results sent");
+    closeOverlay();
+    overlayIsActive = false;
+}
+
+function open_poll_result(pollId, pollText) {
+    closeOverlay();
+    const overlay = document.getElementById('poll-result-menu');
+    const overlayBg = document.getElementById("overlay-bg");
+    if (!overlay || !overlayBg) return;
+
+    currentPollId = pollId;
+    const { question, options } = parse_poll_text(pollText);
+    optionsInCurrentPoll = options;
+    currentQuestion = question;
+
+    if (!pollText) {
+        launch_snackbar("Poll metadata missing");
+        return;
+    }
+
+    let html = `
+        <div id="poll-result-menu" style="text-align:center">
+            <h3>${escapeHTML(question)}</h3>
+            <div id="poll-result-stats" style="background:white; text-align: left; display: inline-block;">
+                <p style="color: gray;">Please wait while votes are being counted...</p>
+            </div>
+            <div style="margin-top: 10px;">
+                <button class="passive buttontext" onclick="closeOverlay()"
+                    style="background-image: url('img/decline.svg'); background-size: 90%; background-position: center; background-repeat: no-repeat; background-size: 60%; width: 40px; height: 40px;"></button>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    overlayBg.style.display = 'initial';
+    overlayBg.onclick = () => closeOverlay();
+    overlayIsActive = true;
+
+    backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
 }
 
 /**
 *   Send a tally request to the backend.
 */
-function requestVoteTallying() {
+function request_vote_tallying() {
     const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
     if (sentResults[currentPollId]) {
         launch_snackbar("This poll is closed. You cannot update the results.");
         return;
     }
-
     backend(`poll:tally ${currentPollId} ${optionsInCurrentPoll.length}`);
-    launch_snackbar("Update requested");
 }
 
-
 /**
-* Called from the backend to update the poll results
-*/
+ * Called from the backend to update the poll results
+ */
 function b2f_showPollTally(pollId, countsArray) {
     console.log("Received poll results for", pollId, countsArray);
     if (!Array.isArray(countsArray) || countsArray.length !== optionsInCurrentPoll.length) {
         launch_snackbar("Mismatch in poll results");
         return;
     }
-
-    const question = document.getElementById("voteQuestion").innerText;
 
     // Determine winner(s)
     const maxVotes = Math.max(...countsArray);
@@ -314,19 +405,24 @@ function b2f_showPollTally(pollId, countsArray) {
         ? `${totalVotes} of ALL voted`
         : `${totalVotes} of ${expectedVoters} voted`;
 
-    currentResultMessage = `Results for: ${question}\n` +
+    currentResultMessage = `Results for: ${currentQuestion}\n` +
         optionsInCurrentPoll.map((opt, idx) => `${opt}: ${countsArray[idx]} vote${countsArray[idx] !== 1 ? 's' : ''}`).join("\n");
 
-    document.getElementById("resultsTitle").innerText = question;
-    document.getElementById("resultsBody").innerHTML = resultsHtml +
+    const resultsHtmlWithSummary = resultsHtml +
         `<hr><p style="color: gray; font-size: small;">${votedSummary}</p>`;
-    document.getElementById("resultsModal").style.display = "block";
-}
 
-function closeResultsModal() {
-    document.getElementById("resultsModal").style.display = "none";
-}
+    const resultTitleEl = document.querySelector("#poll-result-menu h3");
+    const resultStatsEl = document.getElementById("poll-result-stats");
 
+    const closerTitleEl = document.querySelector("#poll-closer-menu h3");
+    const closerStatsEl = document.getElementById("poll-closer-stats");
+
+    if (resultTitleEl) resultTitleEl.innerText = currentQuestion;
+    if (resultStatsEl) resultStatsEl.innerHTML = resultsHtmlWithSummary;
+
+    if (closerTitleEl) closerTitleEl.innerText = currentQuestion;
+    if (closerStatsEl) closerStatsEl.innerHTML = resultsHtmlWithSummary;
+}
 
 /**
  * add_poll_option()
@@ -413,19 +509,19 @@ function get_current_poll_options() {
  */
 function is_poll_uniquely_filled(question, options) {
     if (typeof question !== 'string' || question.trim().length === 0) return false;
-    if (!Array.isArray(options) || options.length === 0) return false;
+    if (!Array.isArray(options)) return false;
 
-    const normalizedOptions = options.map(opt => {
-        if (typeof opt !== 'string' || opt.trim().length === 0) return null;
-        return opt.trim().toLowerCase();
-    });
+    const cleanedOptions = options
+        .map(opt => (typeof opt === 'string' ? opt.trim() : ''))
+        .filter(opt => opt.length > 0);
 
-    if (normalizedOptions.includes(null)) return false;
+    if (cleanedOptions.length < 2) return false;
 
+    const normalizedOptions = cleanedOptions.map(opt => opt.toLowerCase());
     const uniqueOptions = new Set(normalizedOptions);
-    return uniqueOptions.size === normalizedOptions.length;
-}
 
+    return uniqueOptions.size === cleanedOptions.length;
+}
 /**
  * renumber_poll_option_placeholders()
  *
@@ -448,8 +544,8 @@ function renumber_poll_option_placeholders() {
 function encode_poll_payload(pollData) {
     let payload = '';
     if (Android.isGeoLocationEnabled() === "true") {
-        const plusCode = Android.getCurrentLocationAsPlusCode();
-        if (plusCode && plusCode.length > 0) {
+        var plusCode = Android.getCurrentLocationAsPlusCode();
+        if (plusCode != null && plusCode.length > 0) {
             payload += "pfx:loc/plus," + plusCode + "|";
         }
     }

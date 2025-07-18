@@ -182,13 +182,22 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
         }
         i++;
     }
-    if ((p.voice != null) && geoLocPlusCode == null)
-        box += " onclick='play_voice(\"" + curr_chat + "\", \"" + p.key + "\");'";
-    if ((geoLocPlusCode != null) && (p.voice == null))
-        box += " onclick='showGeoMenu(\"" + geoLocPlusCode + "\");'";
-    if ((geoLocPlusCode != null) && (p.voice != null))
-        box += " onclick='showGeoVoiceMenu(\"" + geoLocPlusCode + "\",\"" + curr_chat + "\", \"" + p.key + "\");'";
-
+    const isPoll = otherText.startsWith("📊 Poll");
+    if (isPoll) {
+        if (geoLocPlusCode != null) {
+            updatePollSubtitle(p.key, p.from)
+            box += ` onclick="showGeoPollMenu('${geoLocPlusCode}', '${escapeQuotes(curr_chat)}', '${escapeQuotes(p.key)}', \`${escapeBackticks(p.body.replace(/\n/g, "<br>\n"))}\`, '${escapeQuotes(p.from)}')"`
+        } else {
+            const cleanPollText = p.body.replace(/\n/g, "<br>\n");
+            box += ` onclick="openPollAuto('${escapeQuotes(p.key)}', \`${escapeBackticks(cleanPollText)}\`, '${escapeQuotes(p.from)}')"`
+        }
+    } else if (geoLocPlusCode != null && p.voice == null) {
+        box += ` onclick="showGeoMenu('${geoLocPlusCode}')"`;
+    } else if (geoLocPlusCode != null && p.voice != null) {
+        box += ` onclick="showGeoVoiceMenu('${geoLocPlusCode}', '${curr_chat}', '${p.key}')"`;
+    } else if (p.voice != null) {
+        box += ` onclick="play_voice('${curr_chat}', '${p.key}')"`;
+    }
     box += ">"
 
     // console.log("box=", box);
@@ -200,31 +209,39 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
     if (p["body"] != null) {
         // txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
         txt = otherText;
-        // To display vote button and result button poll msgs:
-        if (txt.startsWith("📊 Poll:")) {
-            const voteBtnId = `vote-btn-${p.key}`;
-            const resultsBtnId = `results-btn-${p.key}`;
-
+        if (txt.trim().startsWith("📊 Poll:")) {
             const pollText = txt;
 
-            txt += `
-                <div style="margin-top: 10px; display: flex; gap: 10px;">
-                    <button id="${voteBtnId}" onclick="open_poll_voter('${p.key}', \`${pollText}\`, '${p.from}')">
-                        🗳️ Vote
-                    </button>
-            `;
+            const lines = pollText.trim().split("<br>");
+            const title = lines[0];
 
-            if (p.from === myId) {
-                txt += `
-                    <button id="${resultsBtnId}" onclick="openResultsModal('${p.key}', \`${pollText}\`)">
-                        📊 Results
-                    </button>
-                `;
-            }
+            const subtitleId = `poll-subtitle-${p.key}`;
 
-            txt += `</div>`;
+            txt = `<div>` +
+                      `<div style="font-weight: bold;">${escapeHTML(title)}</div>` +
+                      `<div id="${subtitleId}" style="margin-top: 2px; color: gray; font-size: small;">...</div>` +
+                  `</div>`;
+
+            setTimeout(() => updatePollSubtitle(p.key, p.from), 0);
         }
+        if (txt.trim().startsWith("Results for:")) {
+            const lines = txt.replace(/<br\s*\/?>/gi, "")
+                .split(/\n+/) // split at newlines
+                .map(line => line.trim()) // remove leading/trailing whitespace
+                .filter(line => line.length > 0); // remove empty lines
 
+            const title = lines[0];
+            const resultLines = lines.slice(1);
+
+            const resultsHtml = resultLines.map(line =>
+                `<p style="color: gray; font-size: small; margin: 0;">${escapeHTML(line)}</p>`
+            ).join("");
+
+            txt = `<div>
+                <p style="font-weight: bold; color: grey; margin: 0;">${escapeHTML(title)}</p>
+                ${resultsHtml}
+            </div>`;
+        }
         // Sketch app
         if (txt.startsWith("data:image/png;base64")) { // check if the string is a data url
                 let compressedBase64 = txt.split(',')[1];
@@ -374,6 +391,54 @@ function load_chat(nm) {
     document.getElementById('lst:posts').scrollIntoView(false)
     // console.log("did scroll down, but did it do it?")
     */
+}
+
+function openPollAuto(pollId, pollText, creatorId) {
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+
+    const hasVoted = !!votedPolls[pollId];
+    const isClosed = !!sentResults[pollId];
+    const isCreator = (creatorId === myId);
+
+    if (isClosed && isCreator) {
+        open_poll_result(pollId, pollText);
+        return;
+    }
+
+    if (isClosed && (!hasVoted)) {
+        return;
+    }
+
+    if (hasVoted) {
+        open_poll_viewer(pollId, pollText, creatorId);
+        return;
+    }
+
+    open_poll_voter(pollId, pollText, creatorId);
+}
+
+function updatePollSubtitle(pollId, creatorId) {
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+
+    const hasVoted = !!votedPolls[pollId];
+    const isClosed = !!sentResults[pollId];
+    const isCreator = (creatorId === myId);
+
+    let subtitle = "";
+    if (isClosed && isCreator) {
+        subtitle = "Click to see results";
+    } else if (isClosed && !hasVoted) {
+        subtitle = "Poll is already closed"
+    } else if (hasVoted) {
+        subtitle = "Click to see your vote";
+    } else {
+        subtitle = "Click to vote";
+    }
+
+    const el = document.getElementById(`poll-subtitle-${pollId}`);
+    if (el) el.textContent = subtitle;
 }
 
 function load_chat_title(ch) {

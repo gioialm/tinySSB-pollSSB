@@ -308,10 +308,14 @@ function closeOverlay() {
     document.getElementById('attach-menu').style.display = 'none';
     document.getElementById('poll-creator-menu').style.display = 'none';
     document.getElementById('poll-voter-menu').style.display = 'none';
+    document.getElementById('poll-result-menu').style.display = 'none';
+    document.getElementById('poll-viewer-menu').style.display = 'none';
+    document.getElementById('poll-end-menu').style.display = 'none';
     document.getElementById('div:modal_img').style.display = 'none';
     document.getElementById('connection-overlay').style.display = 'none';
     document.getElementById('import-id-overlay').style.display = 'none';
     document.getElementById('toast-overlay').style.display = 'none';
+    document.getElementById('geo-poll-menu').style.display = 'none';
 
     // kanban overlays
     document.getElementById('div:menu_history').style.display = 'none';
@@ -730,4 +734,61 @@ function showGeoVoiceMenu(plusCode, chat, key) {
     document.getElementById("overlay-trans").style.display = 'initial';
 }
 
+function showGeoPollMenu(plusCode, chatId, msgKey, pollText, creatorId) {
+    closeOverlay();
+
+    const latLongString = Android.getCoordinatesForPlusCode(plusCode);
+    const latLong = JSON.parse(latLongString);
+    const LatitudeLongitude = latLong.latitude + " " + latLong.longitude;
+
+    const votedPolls = JSON.parse(localStorage.getItem("votedPolls") || "{}");
+    const sentResults = JSON.parse(localStorage.getItem("sentResults") || "{}");
+
+    const hasVoted = !!votedPolls[msgKey];
+    const isClosed = !!sentResults[msgKey];
+    const isCreator = (creatorId === myId);
+
+    const cleanPollText = pollText.split('|').slice(-1)[0];
+
+    let m = 'Copy location to clipboard:<br><hr>';
+    m += `<button class="menu_item_button" onclick='copyToClipboard("${LatitudeLongitude}");'>`;
+    m += `- Lat: ${latLong.latitude},<br>&nbsp;&nbsp;Long: ${latLong.longitude}</button><br>`;
+
+    m += `<button class="menu_item_button" onclick='copyToClipboard("${plusCode}");'>`;
+    m += `- Plus Code: ${plusCode}</button><br><br>`;
+
+    m += `<button class="menu_item_button" style="background-color: #d0d0d0; text-align: center;" `;
+    m += `onclick='show_geo_location("${plusCode}");'>Show location in browser</button><br><br>`;
+
+    if (isClosed && isCreator) {
+        m += `<button class="menu_item_button" style="background-color: #e0e0e0; text-align: center;" `;
+        m += `onclick='open_poll_result("${msgKey}", \`${escapeBackticks(cleanPollText)}\`);'>Show poll results</button>`;
+    } else if (isClosed && (!hasVoted)) {
+        document.getElementById("geo-poll-menu").innerHTML = m;
+        document.getElementById("geo-poll-menu").style.display = 'initial';
+        document.getElementById("overlay-trans").style.display = 'initial';
+        return;
+    } else if (hasVoted) {
+        m += `<button class="menu_item_button" style="background-color: #d0d0d0; text-align: center;" `;
+        m += `onclick='open_poll_viewer("${msgKey}", \`${escapeBackticks(cleanPollText)}\`, "${creatorId}")'>View your selection</button>`;
+    } else {
+        m += `<button class="menu_item_button" style="background-color: #d0d0d0; text-align: center;" `;
+        m += `onclick='open_poll_voter("${msgKey}", \`${escapeBackticks(cleanPollText)}\`, "${creatorId}");'>Vote on poll</button>`;
+    }
+
+    document.getElementById("geo-poll-menu").innerHTML = m;
+    document.getElementById("geo-poll-menu").style.display = 'initial';
+    document.getElementById("overlay-trans").style.display = 'initial';
+}
+
+function escapeBackticks(str) {
+    return String(str).replace(/`/g, "\\`");
+}
+
+function escapeQuotes(str) {
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/'/g, "\\'");
+}
 // ---

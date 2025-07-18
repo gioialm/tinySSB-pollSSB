@@ -43,15 +43,15 @@
     <button>item3</button> -->
   </div>
 
-  <div id='geo-menu' class='geo-menu-overlay'>
-  </div>
+  <div id='geo-menu' class='geo-menu-overlay'></div>
+  <div id='geo-poll-menu' class='geo-menu-overlay'></div>
 
   <div id='attach-menu' class='attach-menu-overlay'>
     <button class="attach-menu-item-button" onclick="closeOverlay(); open_poll_creator();" title="Create Poll">
-      <!--img src="img/poll.svg" alt="Poll Icon" width="24" height="24"/--> 📊 Create Poll
+      <img src="img/poll.svg" alt="Poll Icon"/>Create Poll
     </button>
     <button class="attach-menu-item-button" onclick="closeOverlay(); chat_open_sketch();" title="Create Sketch">
-     <!-- <img src="img/sketch.svg" alt="Sketch Icon" width="24" height="24"/>--> ✏️ Create Sketch
+     <img src="img/pen.svg" alt="Sketch Icon"/>️Create Sketch
     </button>
     <!--
     <button class="attach-menu-item-button" onclick="menu_take_picture(); closeOverlay();" title="Take Picture">
@@ -65,6 +65,9 @@
 
   <div id='poll-creator-menu' class='qr-overlay' style='display: none'></div>
   <div id='poll-voter-menu' class='qr-overlay' style='display: none'></div>
+  <div id='poll-result-menu' class='qr-overlay' style='display: none'></div>
+  <div id='poll-viewer-menu' class='qr-overlay' style='display: none'></div>
+  <div id='poll-end-menu' class='qr-overlay' style='display: none'></div>
 
   <div id="div:modal_img" style="display: none; position: fixed; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9);">
     <img id="modal_img" style="display: block; object-fit: scale-down; width: 100%; height: 100%;">
@@ -721,7 +724,7 @@
 
         <textarea id='draft' rows=3 placeholder='Tap here to type' style="padding-right: 40px;"></textarea>
         <!-- ('img/paperclip.svg') class="flat buttontext img-gray-filter" -->
-        <button id="attachmentButton" onclick="chat_open_attachments_menu()" class="flat buttontext" style="width: 40px; height: 40px; position: absolute; right: 3px; top: 5px; background-image: url('img/paper_clip.png'); background-color: transparent; background-size: 100% 100%;"></button>
+        <button id="attachmentButton" onclick="chat_open_attachments_menu()" class="flat buttontext" style="width: 35px; height: 35px; position: absolute; right: 3px; top: 7px; background-image: url('img/paperclip.svg'); background-color: transparent; background-size: 100% 100%;"></button>
       </div>
       <td height=100%><button id='btn:attach' class="flat buttontext" onclick="btnBridge(this);" style="width: 50px; height: 50px; margin-bottom: 4px; background-image: url('img/record.svg'); fill: #fff;"></button>
       <td height=100%><button id='btn:preview' class="flat passive buttontext" onclick="showPreview();" style="width: 50px; height: 50px; margin-bottom: 4px; background-image: url('img/send-button.svg'); background-size: 100% 100%;"></button>
@@ -741,35 +744,6 @@
 <canvas id="sketchCanvas" style="display: none; position: fixed; top: 0; left: 0; margin: 0px;">
   canvas is here
 </canvas>
-
-
-<!-- VOTE MODAL -->
-<div id="voteModal" style="display:none; position:fixed; z-index:1000;
-     left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
-  <div style="background:white; margin:15% auto; padding:20px; border-radius:8px;
-       width:90%; max-width:400px;">
-    <h3 id="voteQuestion"></h3>
-    <div id="voteOptions"></div>
-    <button onclick="submitVote()">Submit</button>
-    <button onclick="closeVoteModal()">Cancel</button>
-  </div>
-</div>
-
-<!-- RESULT MODAL -->
-<div id="resultsModal" style="display:none; position:fixed; z-index:1000;
-     left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
-  <div style="background:white; margin:15% auto; padding:20px; border-radius:8px;
-       width:90%; max-width:400px;">
-    <h3 id="resultsTitle"></h3>
-    <div id="resultsBody"></div>
-    <div style="margin-top: 20px;">
-      <button onclick="requestVoteTallying()">Update</button>
-      <button onclick="sendPollResults()">Send Results</button>
-      <button onclick="closeResultsModal()">Close</button>
-    </div>
-  </div>
-</div>
-
 
 </body>
 </html>
