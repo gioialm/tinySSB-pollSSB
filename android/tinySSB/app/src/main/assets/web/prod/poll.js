@@ -125,7 +125,11 @@ function open_poll_voter(pollId, pollText, creatorID) {
                         </div>
                     `).join("")}
                 </div>
-                <div style="margin-top: 15px;">
+                <div style="margin-top: 20px;">
+                ${creatorID === myId ? `
+                    <button class="passive buttontext" onclick="open_poll_closer('${pollId}',\`${escapeBackticks(pollText)}\`)"
+                        style="background-image: url('img/poll.svg'); margin-right: 10px; background-position: center; background-size: 90%; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
+                ` : ''}
                 <button class="passive buttontext" onclick="submit_poll_voter('${pollId}')"
                     style="background-image: url('img/accept.svg'); background-position: center; background-size: 90%; background-repeat: no-repeat; width: 40px; height: 40px;"></button>
                 <button class="passive buttontext" onclick="closeOverlay()"
@@ -220,7 +224,7 @@ function open_poll_viewer(pollId, pollText, creatorId) {
             </div>
             <div style="margin-top: 10px;">
                 ${myId === creatorId ? `
-                    <button class="passive buttontext" onclick="open_poll_closer('${pollId}')"
+                    <button class="passive buttontext" onclick="open_poll_closer('${pollId}',\`${escapeBackticks(pollText)}\`)"
                         style="margin-right: 10px; background-image: url('img/result.svg'); background-position: center; background-repeat: no-repeat; background-size: 85%; width: 40px; height: 40px;"></button>
                 ` : ''}
                 <button class="passive buttontext" onclick="closeOverlay()"
@@ -239,19 +243,23 @@ function open_poll_viewer(pollId, pollText, creatorId) {
     backend(`poll:tally ${pollId} ${optionsInCurrentPoll.length}`);
 }
 
-function open_poll_closer(pollId) {
+function open_poll_closer(pollId, pollText) {
     closeOverlay();
     const overlay = document.getElementById('poll-end-menu');
     const overlayBg = document.getElementById("overlay-bg");
     if (!overlay || !overlayBg) return;
 
     currentPollId = pollId;
+    const { question, options } = parse_poll_text(pollText);
 
     let html = `
-        <div id="poll-closer-menu" style="text-align:center">
-            <h3>${escapeHTML(currentQuestion)}</h3>
+        <div style="text-align:center; display: inline-block;">
+            <h3>${question}</h3>
             <div id="poll-closer-stats" style="background:white; text-align: left; display: inline-block;">
                 <p style="color: gray;">Please wait while votes are being counted...</p>
+            </div>
+            <div id="poll-result-message" style="text-align: left; display: inline-block;">
+                <p style="color: gray; font-size: 85%;">Are you sure you want to close the poll?</p>
             </div>
             <div style="margin-top: 10px;">
                 <button class="passive buttontext" onclick="request_vote_tallying();"
@@ -271,7 +279,7 @@ function open_poll_closer(pollId) {
     overlayBg.onclick = () => closeOverlay();
     overlayIsActive = true;
 
-    backend(`poll:tally ${pollId} ${optionsInCurrentPoll.length}`);
+    backend(`poll:tally ${pollId} ${options.length}`);
 }
 
 function submit_poll_closer() {
